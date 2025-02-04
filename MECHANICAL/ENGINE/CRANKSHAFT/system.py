@@ -1,91 +1,40 @@
 import numpy as np
 from scipy.linalg import eigh
 
+print("system.py loaded")
+
 class TorsionalSystem:
     def __init__(self, ignore_rigid_body_modes=True, rbm_tolerance=1e-12):
         """
         Initialize an empty system.
-        
-        Parameters
-        ----------
-        ignore_rigid_body_modes : bool
-            If True, any eigenvalues below rbm_tolerance are treated as 
-            rigid-body modes and will be removed from the final results.
-        
-        rbm_tolerance : float
-            Eigenvalue threshold below which we consider an eigenvalue 'zero'
-            (i.e., a rigid-body mode). 
         """
         self._num_inertias = 0
-        self._inertia_dict = {}  # maps node -> inertia value
-        self._springs = []       # list of (nodeA, nodeB, stiffness)
+        self._inertia_dict = {}
+        self._springs = []
 
-        # For storing eigen-solutions:
-        self._eigsq = None  # array of eigenvalues (omega^2)
-        self._modes = None  # matrix whose columns are eigenvectors
-        self._omega = None  # array of natural frequencies = sqrt(eigsq)
+        self._eigsq = None
+        self._modes = None
+        self._omega = None
 
-        # New attributes controlling how to handle rigid-body modes:
         self.ignore_rigid_body_modes = ignore_rigid_body_modes
         self.rbm_tolerance = rbm_tolerance
 
-    def add_inertia(self, inertia_value):
-        """
-        Adds a new inertia to the system, returning its node number.
-        Inertia is stored at the next available node.
-        """
-        new_node = self._num_inertias + 1  # next node
-        self._inertia_dict[new_node] = inertia_value
-        self._num_inertias += 1
-        return new_node
+    def debug_print_system(self):
+        """Prints a structured representation of all inertias and spring connections."""
+        print("\n🔍 Debugging Torsional System:")
+        print(f"Total Inertias: {self._num_inertias}")
+        print("\n📌 Inertia Values:")
+        for node, inertia in self._inertia_dict.items():
+            print(f"  - Node {node}: Inertia = {inertia:.6f} kg·m²")
 
-    def add_spring(self, nodeA, nodeB, stiffness):
-        """
-        Adds a spring between nodeA and nodeB with the given stiffness.
-        nodeA or nodeB can be 0 for ground.
-        """
-        self._springs.append((nodeA, nodeB, stiffness))
-
-    def build_matrices(self):
-        """
-        Builds and returns the inertia (mass) matrix and the stiffness matrix
-        for the current system.
-
-        Returns
-        -------
-        I_mat : (num_inertias x num_inertias) numpy array
-        K_mat : (num_inertias x num_inertias) numpy array
-        """
-        # We have self._num_inertias dynamic nodes (1..num_inertias).
-        n = self._num_inertias
-        
-        # Build the inertia matrix (diagonal). 
-        I_mat = np.zeros((n, n))
-        for node, inertia_val in self._inertia_dict.items():
-            row_col = node - 1  # 1-based node => 0-based index
-            I_mat[row_col, row_col] = inertia_val
-
-        # Build the stiffness matrix
-        K_mat = np.zeros((n, n))
-        for (nodeA, nodeB, k_val) in self._springs:
-            if nodeA == 0 and nodeB != 0:
-                # ground to inertia nodeB
-                B_idx = nodeB - 1
-                K_mat[B_idx, B_idx] += k_val
-            elif nodeB == 0 and nodeA != 0:
-                # ground to inertia nodeA
-                A_idx = nodeA - 1
-                K_mat[A_idx, A_idx] += k_val
+        print("\n🌀 Spring Connections:")
+        for (nodeA, nodeB, stiffness) in self._springs:
+            if nodeA == 0:
+                print(f"  - Ground 🌍 → Node {nodeB} (Stiffness = {stiffness:.2f} Nm/rad)")
             else:
-                # inertia-inertia
-                A_idx = nodeA - 1
-                B_idx = nodeB - 1
-                K_mat[A_idx, A_idx] += k_val
-                K_mat[B_idx, B_idx] += k_val
-                K_mat[A_idx, B_idx] -= k_val
-                K_mat[B_idx, A_idx] -= k_val
+                print(f"  - Node {nodeA} ↔ Node {nodeB} (Stiffness = {stiffness:.2f} Nm/rad)")
 
-        return I_mat, K_mat
+        print("\n✅ System check completed!\n")
 
     def solve_eigenmodes(self):
         """
@@ -93,40 +42,80 @@ class TorsionalSystem:
             K phi = lambda I phi
         where lambda = omega^2.
         
-        - Stores results internally:
-            self._eigsq = array of eigenvalues (omega^2)
-            self._omega = array of natural frequencies (omega)
-            self._modes = matrix of eigenvectors (columns)
-        - If ignore_rigid_body_modes is True, we remove any eigenvalues 
-          below self.rbm_tolerance as 'rigid-body' modes.
+        - Stores results internally in self._eigsq, self._omega, self._modes
+        - If ignore_rigid_body_modes is True, remove eigenvalues below threshold
         """
+
         I_mat, K_mat = self.build_matrices()
-        
+
         if self._num_inertias < 1:
             raise ValueError("No inertias added. The system is empty.")
-        
+
         # Solve the generalized eigenvalue problem using SciPy
         eigsq_full, modes_full = eigh(K_mat, I_mat)
 
         # Convert eigenvalues to natural frequencies
-        omega_full = np.sqrt(np.maximum(eigsq_full, 0.0))  # clip negative (floating errors)
+        omega_full = np.sqrt(np.maximum(eigsq_full, 0.0))
 
         if self.ignore_rigid_body_modes:
-            # Find indices of valid (non-rigid-body) eigenvalues:
-            # Rigid-body => eigenvalue < rbm_tolerance
             valid_indices = np.where(eigsq_full > self.rbm_tolerance)[0]
-            # Filter them
             self._eigsq = eigsq_full[valid_indices]
             self._omega = omega_full[valid_indices]
             self._modes = modes_full[:, valid_indices]
         else:
-            # Keep all
             self._eigsq = eigsq_full
             self._omega = omega_full
             self._modes = modes_full
 
         return self._eigsq, self._modes
 
+    def add_inertia(self, inertia_value):
+        node = self._num_inertias + 1
+        self._inertia_dict[node] = inertia_value
+        self._num_inertias += 1
+        return node
+
+    def add_spring(self, nodeA, nodeB, stiffness):
+        self._springs.append((nodeA, nodeB, stiffness))
+
+    def build_matrices(self):
+        """
+        Builds the inertia (I) and stiffness (K) matrices.
+        """
+        n = self._num_inertias
+        I_mat = np.zeros((n, n))
+        
+        # Assign inertia values
+        for node, inertia_val in self._inertia_dict.items():
+            I_mat[node-1, node-1] = inertia_val
+
+        K_mat = np.zeros((n, n))
+
+        for connection in self._springs:
+            nodeA, nodeB, k = connection  # Ensure k is properly unpacked
+            k = float(k)  # Convert to scalar (avoids the sequence error)
+
+            if nodeA == 0 and nodeB != 0:
+                B_idx = nodeB - 1
+                K_mat[B_idx, B_idx] += k
+            elif nodeB == 0 and nodeA != 0:
+                A_idx = nodeA - 1
+                K_mat[A_idx, A_idx] += k
+            else:
+                A_idx, B_idx = nodeA - 1, nodeB - 1
+                K_mat[A_idx, A_idx] += k
+                K_mat[B_idx, B_idx] += k
+                K_mat[A_idx, B_idx] -= k
+                K_mat[B_idx, A_idx] -= k
+
+        return I_mat, K_mat
+
+    def compute_energy_equilibrium(self, theta, theta_dot):
+        I_mat, K_mat = self.build_matrices()
+        ke = 0.5 * np.sum((I_mat @ theta_dot.T) * theta_dot.T, axis=0)
+        pe = 0.5 * np.sum((K_mat @ theta.T) * theta.T, axis=0)
+        return ke, pe
+    
     def compute_energy_distributions(self):
         """
         For each mode, compute:
@@ -208,16 +197,3 @@ class TorsionalSystem:
             potential_fractions.append(PE_fracs)
 
         return kinetic_fractions, potential_fractions
-
-    def __repr__(self):
-        """
-        Simple string representation for debugging.
-        """
-        return (f"TorsionalSystem(\n"
-                f"  #inertias = {self._num_inertias},\n"
-                f"  inertias = {self._inertia_dict},\n"
-                f"  springs  = {self._springs},\n"
-                f"  ignoring RBMs? = {self.ignore_rigid_body_modes},\n"
-                f"  tolerance = {self.rbm_tolerance}\n"
-                f")")
-

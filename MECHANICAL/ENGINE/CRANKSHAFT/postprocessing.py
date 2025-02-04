@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+print("postprocessing.py loaded")
+
 def plot_energy_distributions(system, modes_per_figure=4, save_figures=True, show_last=True):
     """
     Plots and optionally saves kinetic and potential energy distributions 
@@ -85,3 +87,75 @@ def plot_energy_distributions(system, modes_per_figure=4, save_figures=True, sho
             plt.show()
         else:
             plt.close()  # Close intermediate figures to avoid excessive windows
+
+def plot_time_response(t, y):
+    n = y.shape[1] // 2  # n DOFs, state = [theta, thetaDot]
+    plt.figure(figsize=(8, 5))
+    for i in range(n):
+        plt.plot(t, y[:, i], label=f"DOF {i+1}")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Angle (rad)")
+    plt.title("Time Response of Torsional System")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_energy_equilibrium(t, ke, pe):
+    """
+    Plots the kinetic and potential energy exchange over time.
+
+    Parameters
+    ----------
+    t : ndarray
+        Time array.
+    ke : ndarray
+        Kinetic energy array over time.
+    pe : ndarray
+        Potential energy array over time.
+    """
+    total_energy = ke + pe
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(t, ke, label="Kinetic Energy", color="blue", linestyle="--")
+    plt.plot(t, pe, label="Potential Energy", color="orange", linestyle="--")
+    plt.plot(t, total_energy, label="Total Energy", color="red", linewidth=2)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Energy (J)")
+    plt.title("Energy Equilibrium in Torsional System")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+import matplotlib.pyplot as plt
+import networkx as nx
+
+def plot_torsional_system(system):
+    """Visualizes the torsional system using NetworkX and Matplotlib."""
+    G = nx.Graph()
+
+    # Add nodes for each inertia
+    for node in system._inertia_dict.keys():
+        G.add_node(node, label=f"Inertia {node}\n({system._inertia_dict[node]:.3f} kg·m²)")
+
+    # Add edges for each spring connection
+    edge_labels = {}
+    for nodeA, nodeB, stiffness in system._springs:
+        G.add_edge(nodeA, nodeB)
+        edge_labels[(nodeA, nodeB)] = f"{stiffness:.1f} Nm/rad"
+
+    # Positioning nodes in a simple horizontal layout
+    pos = {node: (i, 0) for i, node in enumerate(sorted(system._inertia_dict.keys()))}
+    pos[0] = (-1, 0)  # Place ground slightly left
+
+    # Draw the graph
+    plt.figure(figsize=(10, 4))
+    nx.draw(G, pos, with_labels=True, node_size=2000, node_color="lightblue", edge_color="black", font_size=10, font_weight="bold")
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=9, font_color="red")
+
+    # Mark ground node
+    if 0 in pos:
+        plt.scatter(pos[0][0], pos[0][1], c="green", s=800, label="Ground 🌍", edgecolors="black")
+
+    plt.title("Torsional System Visualization")
+    plt.legend()
+    plt.show()
