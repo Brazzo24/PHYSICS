@@ -1,7 +1,2 @@
-
-energy_modes_1_2.png
-MECHANICAL/ENGINE/CRANKSHAFT/__pycache__/load_file.cpython-310.pyc
-MECHANICAL/ENGINE/CRANKSHAFT/__pycache__/postprocessing.cpython-310.pyc
-MECHANICAL/ENGINE/CRANKSHAFT/__pycache__/system.cpython-310.pyc
-energy_modes_1_2.png
-energy_modes_1_2.png
+*.png
+*.pyc
