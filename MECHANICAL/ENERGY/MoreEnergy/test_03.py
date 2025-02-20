@@ -123,6 +123,6 @@ if __name__ == "__main__":
     
     # Display results for each mode
     for mode in range(len(system.natural_frequencies)):
-        print(f"Mode {mode + 1}:")
+        # print(f"Mode {mode + 1}:")
         system.plot_mode_phasor(mode)
         system.plot_mode_energy_distribution(mode)
