@@ -21,20 +21,20 @@ class TorsionalSystem:
 
     def debug_print_system(self):
         """Prints a structured representation of all inertias and spring connections."""
-        print("\n🔍 Debugging Torsional System:")
+        print("\n Debugging Torsional System:")
         print(f"Total Inertias: {self._num_inertias}")
-        print("\n📌 Inertia Values:")
+        print("\n Inertia Values:")
         for node, inertia in self._inertia_dict.items():
             print(f"  - Node {node}: Inertia = {inertia:.6f} kg·m²")
 
-        print("\n🌀 Spring Connections:")
+        print("\n Spring Connections:")
         for (nodeA, nodeB, stiffness) in self._springs:
             if nodeA == 0:
                 print(f"  - Ground 🌍 → Node {nodeB} (Stiffness = {stiffness:.2f} Nm/rad)")
             else:
                 print(f"  - Node {nodeA} ↔ Node {nodeB} (Stiffness = {stiffness:.2f} Nm/rad)")
 
-        print("\n✅ System check completed!\n")
+        print("\n System check completed!\n")
 
     def solve_eigenmodes(self):
         """
