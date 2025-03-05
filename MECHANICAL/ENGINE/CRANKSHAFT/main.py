@@ -80,5 +80,4 @@ system.debug_print_system()
 # Call the visualization function
 plot_torsional_system(system)
 
-# hi there :)
-# hey, again!
+
