@@ -1,0 +1,4 @@
+# in your .gitignore
+__pycache__/
+*.pyc
+
