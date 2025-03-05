@@ -6,12 +6,12 @@ INPUT
 """
 # Updated System Parameters (from image)
 m1 = 1.0   # Lower mass [kg]
-c1 = 10.0  # Lower damping [Ns/m] (converted from 0.01 Ns/mm)
+c1 = 5.0  # Lower damping [Ns/m] (converted from 0.01 Ns/mm)
 k1 = 2000.0  # Lower stiffness [N/m] (converted from 2 N/mm)
 
-m2 = 1.0   # Upper mass [kg]
-c2 = 2.0   # Upper damping [Ns/m] (converted from 0.001 Ns/mm)
-k2 = 12000.0  # Upper stiffness [N/m] (converted from 4 N/mm)
+m2 = 2.0   # Upper mass [kg]
+c2 = 15.0   # Upper damping [Ns/m] (converted from 0.001 Ns/mm)
+k2 = 6000.0  # Upper stiffness [N/m] (converted from 4 N/mm)
 
 # Updated Frequency Range (0 to 35 Hz)
 f_min = 0.1   # Avoid division by zero
