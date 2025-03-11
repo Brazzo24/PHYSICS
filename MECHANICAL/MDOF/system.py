@@ -17,9 +17,14 @@ from scipy.linalg import eigh, eig
 # USER INPUT SECTION
 ###############################################################################
 # 1) System parameters for an N-DOF "chain"
-m = np.array([1.0, 1.0, 2.0])      # masses [kg]
-c = np.array([25.0, 2.0, 3.0])     # damping [Ns/m]
-k = np.array([2000.0, 12000.0, 6000.0])  # stiffness [N/m]
+# m = np.array([1.0, 1.0, 2.0])      # masses [kg]
+# c = np.array([25.0, 2.0, 3.0])     # damping [Ns/m]
+# k = np.array([2000.0, 12000.0, 6000.0])  # stiffness [N/m]
+
+m = np.array([7.39e-3, 3.951e-4, 7.917e-4, 1.017e-3, 1.4178e-3, 1.123e-4, 1.217e-3, 1.347e-3, 2.734e-1, 2.694e1])      # masses [kg]
+c = np.array([5.0, 2.0, 3.0, 1.0, 2.0, 3.0, 4.0, 8.2, 9.2, 10.0])     # damping [Ns/m]
+k = np.array([2.379e5, 1.61e5, 1.12e3, 1.1e5, 1.1e5, 2.721e4, 4.972e3, 7.727e3, 8.571e3, 10.0e3])  # stiffness [N/m]
+
 
 # 2) Frequency range for forced response and power analysis
 f_min = 0.1    # Hz
@@ -334,34 +339,31 @@ def main():
         print(f"  T_dof distribution: {mode_data['T_dof']}")
         print(f"  V_springs distribution: {mode_data['V_springs']}")
     
-    # Optional: bar plots for each mode
-    for mode_data in modal_energies:
-        mode_idx = mode_data['mode']
-        freq_hz = mode_data['omega_rad_s']/(2*np.pi)
+    # # Optional: bar plots for each mode
+    # for mode_data in modal_energies:
+    #     mode_idx = mode_data['mode']
+    #     freq_hz = mode_data['omega_rad_s']/(2*np.pi)
         
-        # Kinetic
-        plt.figure(figsize=(7,4))
-        dof_indices = np.arange(N)+1
-        plt.bar(dof_indices, mode_data['T_dof'], color='g', alpha=0.7)
-        plt.xlabel('DOF Index')
-        plt.ylabel('Kinetic Energy [J]')
-        plt.title(f'Kinetic Energy Distribution, Mode {mode_idx} ({freq_hz:.2f} Hz)')
-        plt.grid(True)
-        plt.show()
+    #     # Kinetic
+    #     plt.figure(figsize=(7,4))
+    #     dof_indices = np.arange(N)+1
+    #     plt.bar(dof_indices, mode_data['T_dof'], color='g', alpha=0.7)
+    #     plt.xlabel('DOF Index')
+    #     plt.ylabel('Kinetic Energy [J]')
+    #     plt.title(f'Kinetic Energy Distribution, Mode {mode_idx} ({freq_hz:.2f} Hz)')
+    #     plt.grid(True)
+    #     plt.show()
         
-        # Potential
-        plt.figure(figsize=(7,4))
-        spring_indices = np.arange(N)+1
-        plt.bar(spring_indices, mode_data['V_springs'], color='r', alpha=0.7)
-        plt.xlabel('Spring Index')
-        plt.ylabel('Potential Energy [J]')
-        plt.title(f'Potential Energy Distribution, Mode {mode_idx} ({freq_hz:.2f} Hz)')
-        plt.grid(True)
-        plt.show()
+    #     # Potential
+    #     plt.figure(figsize=(7,4))
+    #     spring_indices = np.arange(N)+1
+    #     plt.bar(spring_indices, mode_data['V_springs'], color='r', alpha=0.7)
+    #     plt.xlabel('Spring Index')
+    #     plt.ylabel('Potential Energy [J]')
+    #     plt.title(f'Potential Energy Distribution, Mode {mode_idx} ({freq_hz:.2f} Hz)')
+    #     plt.grid(True)
+    #     plt.show()
 
 
 if __name__ == "__main__":
     main()
-
-
-
