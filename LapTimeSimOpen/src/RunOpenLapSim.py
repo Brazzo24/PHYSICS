@@ -132,7 +132,7 @@ if __name__ == '__main__':
     # Additional Options
     bExport = 1
     bPlot = 1
-    bPlotExtra = 0
+    bPlotExtra = 1
 
     # object instantiation
     runOpenLapSim = RunOpenLapSim(setupFileName, trackFileName,
