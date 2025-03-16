@@ -130,7 +130,7 @@ if __name__ == '__main__':
     # TrackFile.txt
     trackFileName = "TrackFile.txt"
     # Additional Options
-    bExport = 1
+    bExport = 0
     bPlot = 1
     bPlotExtra = 1
 
