@@ -1,0 +1,193 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import eigh, eig
+from excitation_generator import create_engine_excitation
+
+# --------------------
+# CONFIGURATION FLAGS
+# --------------------
+# Computation Flags
+COMPUTE_FORCED_RESPONSE = True
+COMPUTE_FREE_VIBRATION_ANALYSIS = True
+COMPUTE_MODAL_ENERGY_ANALYSIS = True
+
+# Plotting Flags (these now control whether an overview function is called)
+PLOT_OVERVIEW_FORCED_RESPONSE = True
+PLOT_EXCITATION_POWER = True
+PLOT_POLES = True
+PLOT_MODAL_ENERGY = True
+PLOT_PHASE_ANGLES = True
+
+# Limit for the number of modes to plot in modal energy overview
+mode_plot_limit = 5
+
+###############################################################################
+# SYSTEM MATRIX BUILDING FUNCTIONS (Free-Chain, No Ground Connection)
+###############################################################################
+def build_free_chain_matrices(m, c_inter, k_inter):
+    N = len(m)
+    M = np.diag(m)
+    C = np.zeros((N, N))
+    K = np.zeros((N, N))
+    for i in range(N - 1):
+        # Damping: affects DOF i and i+1
+        C[i, i]     += c_inter[i]
+        C[i, i+1]   -= c_inter[i]
+        C[i+1, i]   -= c_inter[i]
+        C[i+1, i+1] += c_inter[i]
+        # Stiffness: affects DOF i and i+1
+        K[i, i]     += k_inter[i]
+        K[i, i+1]   -= k_inter[i]
+        K[i+1, i]   -= k_inter[i]
+        K[i+1, i+1] += k_inter[i]
+    return M, C, K
+
+###############################################################################
+# AUGMENTED SYSTEM FORCED RESPONSE (Enforcing a Boundary Condition)
+###############################################################################
+def build_augmented_system(D, F_ext):
+    N = D.shape[0]
+    A_aug = np.zeros((N+1, N+1), dtype=complex)
+    b_aug = np.zeros(N+1, dtype=complex)
+    A_aug[0:N, 0:N] = D
+    A_aug[N-1, N] = -1.0
+    b_aug[0:N] = F_ext
+    A_aug[N, N-1] = 1.0  # Enforce x_{N-1} = 0
+    return A_aug, b_aug
+
+def compute_forced_response_free_chain(m, c_inter, k_inter, f_vals, F_ext_matrix):
+    N = len(m)
+    num_points = len(f_vals)
+    X = np.zeros((N, num_points), dtype=complex)
+    F_bound = np.zeros(num_points, dtype=complex)
+    M, C, K = build_free_chain_matrices(m, c_inter, k_inter)
+    
+    for i, f in enumerate(f_vals):
+        w = 2 * np.pi * f
+        D = K + 1j*w*C - (w**2)*M
+        A_aug, b_aug = build_augmented_system(D, F_ext_matrix)
+        sol = np.linalg.solve(A_aug, b_aug)
+        X[:, i] = sol[0:N]
+        F_bound[i] = sol[N]
+    return X, F_bound
+
+###############################################################################
+# POLE CALCULATION (State-Space Eigenvalues)
+###############################################################################
+def compute_poles_free_chain(m, c_inter, k_inter):
+    M, C, K = build_free_chain_matrices(m, c_inter, k_inter)
+    N = len(m)
+    zero_block = np.zeros((N, N))
+    I_block = np.eye(N)
+    Minv = np.linalg.inv(M)
+    
+    A_upper = np.hstack((zero_block, I_block))
+    A_lower = np.hstack((-Minv @ K, -Minv @ C))
+    A = np.vstack((A_upper, A_lower))
+    
+    poles, _ = eig(A)
+    return poles
+
+###############################################################################
+# FREE-VIBRATION ANALYSIS AND MODAL ENERGY DISTRIBUTION
+###############################################################################
+def free_vibration_analysis_free_chain(m, k_inter):
+    N = len(m)
+    M, _, K = build_free_chain_matrices(m, np.zeros(N-1), k_inter)
+    eigvals, eigvecs = eigh(K, M)
+    omega_n = np.sqrt(eigvals)
+    f_n = omega_n / (2*np.pi)
+    return f_n, eigvecs, M, K
+
+def modal_energy_analysis(m, k_inter, f_n, eigvecs, M):
+    N = len(m)
+    modal_energies = []
+    for i in range(eigvecs.shape[1]):
+        phi = eigvecs[:, i]
+        norm_factor = np.sqrt(np.real(np.conjugate(phi).T @ M @ phi))
+        phi_norm = phi / norm_factor
+        omega_i = 2*np.pi*f_n[i]
+        T_dof = 1.0 * m * (omega_i * np.abs(phi_norm))**2
+        V_springs = np.zeros(N-1)
+        for s in range(N-1):
+            V_springs[s] = 0.5 * k_inter[s] * (np.abs(phi_norm[s+1] - phi_norm[s]))**2
+        modal_energies.append({
+            'mode': i+1,
+            'omega_rad_s': omega_i,
+            'T_total': np.sum(T_dof),
+            'V_total': np.sum(V_springs),
+            'T_dof': T_dof,
+            'V_springs': V_springs,
+            'phi_norm': phi_norm
+        })
+    return modal_energies
+
+###############################################################################
+# FORCED RESPONSE POST-PROCESSING
+###############################################################################
+def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext_matrix):
+    """
+    Computes the forced response using the augmented formulation and then derives:
+      - Displacement (X_vals)
+      - Acceleration (A_vals)
+      - Active power in dampers (P_damp)
+      - Reactive power in springs (P_spring)
+      - Inertial reactive power (Q_mass)
+      - Reaction force at boundary (F_bound)
+      - NEW: Phase angles of displacement (phase_vals)
+    """
+    N = len(m)
+    num_points = len(f_vals)
+    
+    X_vals = np.zeros((N, num_points), dtype=complex)
+    A_vals = np.zeros((N, num_points), dtype=complex)
+    P_damp = np.zeros((N-1, num_points), dtype=complex)
+    P_spring = np.zeros((N-1, num_points), dtype=complex)
+    Q_mass = np.zeros((num_points, N))
+    F_bound_array = np.zeros(num_points, dtype=complex)
+    
+    # Build free-chain matrices
+    M, C, K = build_free_chain_matrices(m, c_inter, k_inter)
+    
+    for i, f in enumerate(f_vals):
+        w = 2 * np.pi * f
+        # Dynamic stiffness for free chain
+        D = K + 1j*w*C - (w**2)*M
+        # Augmented system to enforce x_{N-1} = 0
+        A_aug, b_aug = build_augmented_system(D, F_ext_matrix[:, i])
+        sol = np.linalg.solve(A_aug, b_aug)
+        
+        X = sol[0:N]  # Displacement solution
+        F_bound_array[i] = sol[N]
+        X_vals[:, i] = X
+        
+        # Acceleration (a = -w^2*x)
+        A_vals[:, i] = -w**2 * X
+        
+        # Velocity for power calculations: V = j*w*x
+        V = 1j * w * X
+        
+        # Damper and spring power
+        for j in range(1, N):
+            X_rel = X[j] - X[j-1]
+            V_rel = V[j] - V[j-1]
+            # Active power in dampers
+            P_damp[j-1, i] = c_inter[j-1] * (V_rel * np.conjugate(V_rel))
+            # Reactive power in springs
+            P_spring[j-1, i] = k_inter[j-1] * (X_rel * np.conjugate(V_rel))
+        
+        # Inertial reactive power per mass (peak amplitude convention)
+        Q_mass[i, :] = 1.0 * w * m * (np.abs(V)**2)
+    
+    # NEW: Phase angle of each DOF's displacement (relative to a real forcing)
+    phase_vals = np.angle(X_vals)  # shape (N, num_points)
+    
+    return {
+        'X_vals': X_vals,
+        'A_vals': A_vals,
+        'P_damp': P_damp,
+        'P_spring': P_spring,
+        'Q_mass': Q_mass,
+        'F_bound': F_bound_array,
+        'phase_vals': phase_vals,  # ADDED
+    }
