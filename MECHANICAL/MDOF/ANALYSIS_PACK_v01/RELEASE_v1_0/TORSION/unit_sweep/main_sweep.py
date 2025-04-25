@@ -16,7 +16,7 @@ except ImportError:
     USE_RECOMMENDER = False
 
 # overwritee Recommender
-USE_RECOMMENDER = True
+USE_RECOMMENDER = False
 
 def main():
     # ------------------------------
@@ -24,17 +24,27 @@ def main():
     # ------------------------------
     # Example: Reduced Crankshaft Model
     # ([Crankshaft, CRCS, PG, Clutch 1, Clutch 2, Input, Output, Hub, Wheel, Road])
+
+    # m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
+    #               1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
+    #               2.73e-1, 2.69e+1])  # kgm^2
+    
     m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
-                  1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
-                  2.73e-1, 2.69e+1])  # kgm^2
+                1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
+                2.73e-2, 2.69e+1])  # kgm^2
 
 
     
     # ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
-    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
+    # c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
 
+    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.5, 0.05]) # Nm.s/rad
+
+    # k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
+    #                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
+    
     k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
-                        2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
+                    2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
     
 
     N = len(m)

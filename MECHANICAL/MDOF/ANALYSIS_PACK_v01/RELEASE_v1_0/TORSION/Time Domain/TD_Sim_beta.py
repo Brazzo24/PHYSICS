@@ -5,9 +5,23 @@ import matplotlib.pyplot as plt
 # -------------------------------------------------
 # 1) System Definition (same as before)
 # -------------------------------------------------
-m = np.array([1.0, 1.0, 100.0])  # 3-DOF masses
-c_inter = np.array([0.5, 0.3])   # damping between (DOF0-DOF1) and (DOF1-DOF2)
-k_inter = np.array([1.0e3, 5.0e2])  # stiffness between (DOF0-DOF1) and (DOF1-DOF2)
+# m = np.array([1.0, 1.0, 100.0])  # 3-DOF masses
+# c_inter = np.array([0.5, 0.3])   # damping between (DOF0-DOF1) and (DOF1-DOF2)
+# k_inter = np.array([1.0e3, 5.0e2])  # stiffness between (DOF0-DOF1) and (DOF1-DOF2)
+
+# ([Crankshaft, CRCS, PG, Clutch 1, Clutch 2, Input, Output, Hub, Wheel, Road])
+m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
+                1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
+                2.73e-1, 2.69e+1])  # kgm^2
+
+
+
+# ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
+c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
+
+k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
+                    2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
+    
 
 def build_full_matrices(m, c_inter, k_inter):
     N = len(m)
@@ -36,6 +50,12 @@ def generate_fourier_torque(crank_angle, coeffs, freqs, phases):
         torque += amp * np.sin(np.radians(freq * crank_angle + phase))
     return torque
 
+# Sinusoidal forcing on DOF N-2
+amp_sine = 20.0        # [Nm] amplitude of sinusoidal forcing
+freq_sine = 10.0       # [Hz] frequency of sinusoidal forcing
+phase_sine = 0.0       # [deg] phase shift
+
+
 angles = np.linspace(0, 720, 1000)  # 0-720 deg
 harmonic_coeffs  = [50, 30, 15, 10, 5]
 harmonic_freqs   = [1,  2,  3,  4,  5]
@@ -60,30 +80,51 @@ Kp = 200.0        # Proportional gain
 # -------------------------------------------------
 # 4) ODE Function with Feedback Controller
 # -------------------------------------------------
+# def engine_driveline_ode(t, y, M, C, K):
+#     """
+#     y = [x0, x1, x2, v0, v1, v2] for a 3-DOF system.
+#     Forcing:
+#       - DOF0: engine torque (interpolated from synthetic_torque)
+#       - DOF1: no external torque
+#       - DOF2: feedback torque to hold w_target
+#     """
+ 
+#     N = len(m)
+#     x = y[:N]
+#     v = y[N:]
+    
+#     T_engine = np.interp(t, time_signal, synthetic_torque)
+#     T_fb = -Kp * (v[-1] - w_target)  # Apply feedback on last DOF
+
+#     f = np.zeros(N)
+#     f[0] = T_engine
+#     f[-1] = T_fb
+
+#     a = np.linalg.solve(M, f - C @ v - K @ x)
+#     return np.concatenate((v, a))
+
 def engine_driveline_ode(t, y, M, C, K):
-    """
-    y = [x0, x1, x2, v0, v1, v2] for a 3-DOF system.
-    Forcing:
-      - DOF0: engine torque (interpolated from synthetic_torque)
-      - DOF1: no external torque
-      - DOF2: feedback torque to hold w_target
-    """
-    N = len(m)  # 3
+    N = len(m)
     x = y[:N]
     v = y[N:]
     
-    # Interpolate engine torque at DOF0:
+    # Engine torque (DOF0)
     T_engine = np.interp(t, time_signal, synthetic_torque)
     
-    # Feedback torque at DOF2:
-    T_fb = -Kp * (v[2] - w_target)
+    # Feedback torque (DOF N-1)
+    T_fb = -Kp * (v[-1] - w_target)
     
-    # Forcing vector:
-    f = np.array([T_engine, 0.0, T_fb])
-    
-    # Compute acceleration:
+    # New sinusoidal forcing at DOF N-2
+    #  T_sine = amp_sine * np.sin(2 * np.pi * freq_sine * t + np.radians(phase_sine))
+    T_sine = 0
+
+    # External force vector
+    f = np.zeros(N)
+    f[0] = T_engine
+    f[N - 2] = T_sine
+    f[-1] = T_fb
+
     a = np.linalg.solve(M, f - C @ v - K @ x)
-    
     return np.concatenate((v, a))
 
 # -------------------------------------------------
@@ -92,8 +133,9 @@ def engine_driveline_ode(t, y, M, C, K):
 M, C, K = build_full_matrices(m, c_inter, k_inter)
 t_span = (0, 5)
 t_eval = np.linspace(t_span[0], t_span[1], 2000)
-x0 = np.zeros(3)
-v0 = np.zeros(3)
+N = len(m)
+x0 = np.zeros(N)
+v0 = np.zeros(N)
 y0 = np.concatenate((x0, v0))
 
 sol = solve_ivp(
@@ -104,8 +146,8 @@ sol = solve_ivp(
     method='RK45'
 )
 
-x_sol = sol.y[:3, :]  # displacements for DOF0, DOF1, DOF2
-v_sol = sol.y[3:, :]  # velocities for DOF0, DOF1, DOF2
+x_sol = sol.y[:N, :]  # displacements for DOF0, DOF1, DOF2
+v_sol = sol.y[N:, :]  # velocities for DOF0, DOF1, DOF2
 
 # -------------------------------------------------
 # 6) Post-Processing: Compute Acceleration, Spring Forces, and Damping Power
@@ -123,59 +165,63 @@ for i in range(num_steps):
     t_i = sol.t[i]
     # Compute acceleration at time t_i using the same formula as in the ODE:
     f_t = np.array([np.interp(t_i, time_signal, synthetic_torque), 0.0, -Kp * (v_sol[2, i] - w_target)])
-    a_sol[:, i] = np.linalg.solve(M, f_t - C @ v_sol[:, i] - K @ x_sol[:, i])
-    
-    # Compute spring forces:
-    # Spring 0 (between DOF0 and DOF1)
-    spring_force[0, i] = k_inter[0] * (x_sol[1, i] - x_sol[0, i])
-    # Spring 1 (between DOF1 and DOF2)
-    spring_force[1, i] = k_inter[1] * (x_sol[2, i] - x_sol[1, i])
-    
-    # Compute damper forces:
-    # Damper 0 (between DOF0 and DOF1)
-    damper_force[0, i] = c_inter[0] * (v_sol[1, i] - v_sol[0, i])
-    # Damper 1 (between DOF1 and DOF2)
-    damper_force[1, i] = c_inter[1] * (v_sol[2, i] - v_sol[1, i])
-    
-    # Compute instantaneous damping power: P = c * (Δv)^2
-    damping_power[0, i] = c_inter[0] * (v_sol[1, i] - v_sol[0, i])**2
-    damping_power[1, i] = c_inter[1] * (v_sol[2, i] - v_sol[1, i])**2
+    a_sol = np.zeros_like(x_sol)  
+    spring_force = np.zeros((N - 1, num_steps))
+    damper_force = np.zeros((N - 1, num_steps))
+    damping_power = np.zeros((N - 1, num_steps))
+
+    for i in range(num_steps):
+        t_i = sol.t[i]
+        f_t = np.zeros(N)
+        f_t[0] = np.interp(t_i, time_signal, synthetic_torque)
+        f_t[-1] = -Kp * (v_sol[-1, i] - w_target)
+        a_sol[:, i] = np.linalg.solve(M, f_t - C @ v_sol[:, i] - K @ x_sol[:, i])
+        
+        for j in range(N - 1):
+            spring_force[j, i] = k_inter[j] * (x_sol[j+1, i] - x_sol[j, i])
+            damper_force[j, i] = c_inter[j] * (v_sol[j+1, i] - v_sol[j, i])
+            damping_power[j, i] = c_inter[j] * (v_sol[j+1, i] - v_sol[j, i])**2
 
 # -------------------------------------------------
 # 7) Plot the Results
 # -------------------------------------------------
 # Plot acceleration for each DOF:
-plt.figure(figsize=(10, 4))
-plt.plot(sol.t, a_sol[0, :], label='DOF0 Acceleration')
-plt.plot(sol.t, a_sol[1, :], label='DOF1 Acceleration')
-plt.plot(sol.t, a_sol[2, :], label='DOF2 Acceleration')
-plt.xlabel('Time [s]')
-plt.ylabel('Acceleration [rad/s²]')
-plt.title('Acceleration of Each DOF')
-plt.legend()
-plt.grid(True)
+plt.figure(figsize=(10, 3 * N))
+for i in range(N):
+    plt.subplot(N, 1, i + 1)
+    plt.plot(sol.t, a_sol[i, :], label=f'DOF{i} Acceleration')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Acceleration [rad/s²]')
+    plt.title(f'DOF{i} Acceleration Over Time')
+    plt.grid(True)
+    plt.legend()
+plt.tight_layout()
 plt.show()
 
-# Plot spring forces
-plt.figure(figsize=(10, 4))
-plt.plot(sol.t, spring_force[0, :], label='Spring Force (DOF0-DOF1)')
-plt.plot(sol.t, spring_force[1, :], label='Spring Force (DOF1-DOF2)')
-plt.xlabel('Time [s]')
-plt.ylabel('Force [Nm]')
-plt.title('Spring Forces Over Time')
-plt.legend()
-plt.grid(True)
+# Plot spring forces for each connected DOF pair:
+plt.figure(figsize=(10, 3 * (N - 1)))
+for i in range(N - 1):
+    plt.subplot(N - 1, 1, i + 1)
+    plt.plot(sol.t, spring_force[i, :], label=f'Spring Force (DOF{i}-DOF{i+1})')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Force [Nm]')
+    plt.title(f'Spring Force Between DOF{i} and DOF{i+1}')
+    plt.grid(True)
+    plt.legend()
+plt.tight_layout()
 plt.show()
 
-# Plot damping power
-plt.figure(figsize=(10, 4))
-plt.plot(sol.t, damping_power[0, :], label='Damping Power (DOF0-DOF1)')
-plt.plot(sol.t, damping_power[1, :], label='Damping Power (DOF1-DOF2)')
-plt.xlabel('Time [s]')
-plt.ylabel('Power [W]')
-plt.title('Instantaneous Power Dissipated in Dampers')
-plt.legend()
-plt.grid(True)
+# Plot damping power for each damper:
+plt.figure(figsize=(10, 3 * (N - 1)))
+for i in range(N - 1):
+    plt.subplot(N - 1, 1, i + 1)
+    plt.plot(sol.t, damping_power[i, :], label=f'Damping Power (DOF{i}-DOF{i+1})')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Power [W]')
+    plt.title(f'Damping Power Between DOF{i} and DOF{i+1}')
+    plt.grid(True)
+    plt.legend()
+plt.tight_layout()
 plt.show()
 
 # -------------------------------------------------
