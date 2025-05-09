@@ -1,0 +1,16 @@
+{
+  "label": "Baseline_run",
+  "dof_labels": [
+    "Crankshaft",
+    "DMF",
+    "CRCS",
+    "PG",
+    "Clutch1",
+    "Clutch2",
+    "Input",
+    "Output",
+    "Hub",
+    "Wheel",
+    "Road"
+  ]
+}

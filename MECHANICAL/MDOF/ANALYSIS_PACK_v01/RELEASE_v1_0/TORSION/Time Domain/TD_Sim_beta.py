@@ -9,19 +9,39 @@ import matplotlib.pyplot as plt
 # c_inter = np.array([0.5, 0.3])   # damping between (DOF0-DOF1) and (DOF1-DOF2)
 # k_inter = np.array([1.0e3, 5.0e2])  # stiffness between (DOF0-DOF1) and (DOF1-DOF2)
 
-# ([Crankshaft, CRCS, PG, Clutch 1, Clutch 2, Input, Output, Hub, Wheel, Road])
+# # ([Crankshaft, CRCS, PG, Clutch 1, Clutch 2, Input, Output, Hub, Wheel, Road])
+# m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
+#                 1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
+#                 2.73e-1, 2.69e+1])  # kgm^2
+
+
+
+# # ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
+# c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
+
+# k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
+#                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
+
+
+# Original definition of m, c_inter, k_inter
+
+# Add DMF between DOF0 and the rest
+m_dmf = 5e-3
+k_dmf = 1.0e4
+c_dmf = 0.2
+
 m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
-                1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
-                2.73e-1, 2.69e+1])  # kgm^2
-
-
-
-# ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
-c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
-
+              1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
+              2.73e-1, 2.69e+1])
+c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05])
 k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
-                    2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
-    
+                    2.72e4, 4.97e3, 7.73e2, 8.57e2])
+
+# Insert DMF at index 1
+m = np.insert(m, 1, m_dmf)
+c_inter = np.insert(c_inter, 0, c_dmf)
+k_inter = np.insert(k_inter, 0, k_dmf)
+
 
 def build_full_matrices(m, c_inter, k_inter):
     N = len(m)

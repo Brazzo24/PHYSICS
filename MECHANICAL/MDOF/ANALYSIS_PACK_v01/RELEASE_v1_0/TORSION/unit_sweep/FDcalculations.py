@@ -141,6 +141,7 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
     
     X_vals = np.zeros((N, num_points), dtype=complex)
     A_vals = np.zeros((N, num_points), dtype=complex)
+    V_vals = np.zeros((N, num_points), dtype=complex)
     P_damp = np.zeros((N-1, num_points), dtype=complex)
     P_spring = np.zeros((N-1, num_points), dtype=complex)
     Q_mass = np.zeros((num_points, N))
@@ -164,6 +165,9 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
         # Acceleration (a = -w^2*x)
         A_vals[:, i] = -w**2 * X
         
+        # Velocity (v = w * X)
+        V_vals[:, i] = w * X
+
         # Velocity for power calculations: V = j*w*x
         V = 1j * w * X
         
@@ -185,6 +189,7 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
     return {
         'X_vals': X_vals,
         'A_vals': A_vals,
+        'V_vals': V_vals,
         'P_damp': P_damp,
         'P_spring': P_spring,
         'Q_mass': Q_mass,
