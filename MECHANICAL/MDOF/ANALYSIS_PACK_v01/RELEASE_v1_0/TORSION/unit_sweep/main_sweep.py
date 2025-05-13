@@ -43,7 +43,7 @@ def main():
     # k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
     #                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
     
-    k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
+    k_inter = np.array([2.34e4, 1.62e5, 1.1e3, 1.10e5, 1.10e5,
                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
     
 

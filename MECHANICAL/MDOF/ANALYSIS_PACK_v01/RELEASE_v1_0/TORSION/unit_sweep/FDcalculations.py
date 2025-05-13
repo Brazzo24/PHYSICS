@@ -95,7 +95,8 @@ def free_vibration_analysis_free_chain(m, k_inter):
     N = len(m)
     M, _, K = build_free_chain_matrices(m, np.zeros(N-1), k_inter)
     eigvals, eigvecs = eigh(K, M)
-    omega_n = np.sqrt(eigvals)
+    # omega_n = np.sqrt(eigvals)
+    omega_n = np.sqrt(np.maximum(eigvals, 0))
     f_n = omega_n / (2*np.pi)
     return f_n, eigvecs, M, K
 
