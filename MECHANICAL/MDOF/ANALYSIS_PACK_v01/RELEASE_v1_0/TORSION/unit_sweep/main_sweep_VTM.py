@@ -29,31 +29,18 @@ FULL_RANKING = False
 
 
 def define_system():
-    m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
-                  1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
-                  7.73e-2, 2.69e+1])
+    m = np.array([1.21e-4, 3.95e-4, 7.92e-4,
+                  1.02e-3, 1.42e-3,
+                  3.35e-2, 1.09e+1])
     # c_inter = np.array([0.05] * 9)
-    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05])
-    k_inter = np.array([2.34e4, 1.62e5, 1.81e3, 1.10e5, 1.10e5,
-                        2.72e4, 4.97e3, 2.73e2, 8.57e2])
-
-    m[0] *= 1.0 * 1.5
-    m[8] *= 1.2
-    k_inter[2] *= 1.0 # Primary Damper Stiffness
-    k_inter[6] *= 1.0 # chain stiffness
-    k_inter[7] *= 1.0 / 1.5 # hub stiffness
-    k_inter[8] *= 1.8 # tyre stiffness
-
-    c_inter[0] *= 1.0 # gear 1
-    c_inter[2] *= 1.0 # primary damper damping
-    c_inter[6] *= 1.0 # Chain Damping
-    c_inter[7] *= 1.0 # RWD Damping
-    c_inter[8] *= 1.0 # tyre damping
-    
+    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.1,0.5])
+    k_inter = np.array([2.34e4, 1.62e5, 1.62e5, 1.62e5,
+                         4.73e2, 9.57e2])
+   
 
     dof_labels = [
-        "Crankshaft", "CRCS", "PG", "Clutch1",
-        "Clutch2", "Input", "Output", "Hub", "Wheel", "Road"
+        "CamOut", "CamIn",
+        "Gear42", "Gear40", "Reich1", "Reich2", "Dyno"
     ]
     return m, c_inter, k_inter, dof_labels
 
@@ -62,8 +49,8 @@ def run_analysis():
     m, c_inter, k_inter, dof_labels = define_system()
     N = len(m)
     F_ext = np.zeros(N, dtype=complex)
-    F_ext[0] = 1.0
-    F_ext[8] = -1.0
+    F_ext[-2] = 1.0
+    # F_ext[-1] = -1.0
     f_vals = np.linspace(0.1, 400.0, 10000)
     print(F_ext)
 

@@ -1,0 +1,152 @@
+# Run multiple simulations for a sweep of engine speeds and extract RMS twist amplitude at DOF 0
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+
+sweep_rpm = np.arange(2000, 6100, 200)  # sweep from 2000 to 6000 RPM
+rms_twist_dof0 = []
+
+# System remains the same
+def build_full_matrices(m, c_inter, k_inter):
+    N = len(m)
+    M = np.diag(m)
+    C = np.zeros((N, N))
+    K = np.zeros((N, N))
+    for i in range(N - 1):
+        C[i, i] += c_inter[i]
+        C[i + 1, i + 1] += c_inter[i]
+        C[i, i + 1] -= c_inter[i]
+        C[i + 1, i] -= c_inter[i]
+        K[i, i] += k_inter[i]
+        K[i + 1, i + 1] += k_inter[i]
+        K[i, i + 1] -= k_inter[i]
+        K[i + 1, i] -= k_inter[i]
+    return M, C, K
+
+# Inertia, damping, stiffness
+m = np.array([1.21e-4, 3.95e-4, 7.92e-4,
+              1.02e-3, 1.42e-3,
+              3.35e-2, 1.09e-0])
+
+c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.01, 0.5])
+
+k_inter = np.array([2.34e4, 1.62e5, 1.62e5, 1.62e5, 4.73e5, 9.57e3])
+
+N = len(m)
+M, C, K = build_full_matrices(m, c_inter, k_inter)
+
+
+# Harmonic torque generation
+def generate_fourier_torque(crank_angle, coeffs, freqs, phases):
+    torque = np.zeros_like(crank_angle, dtype=float)
+    for amp, freq, phase in zip(coeffs, freqs, phases):
+        torque += amp * np.sin(np.radians(freq * crank_angle + phase))
+    return torque
+
+angles = np.linspace(0, 720, 1000)
+harmonic_coeffs = [50, 30, 15, 10, 5]
+harmonic_freqs = [1, 2, 3, 4, 5]
+harmonic_phases = [0, 45, 90, 135, 180]
+synthetic_torque = generate_fourier_torque(angles, harmonic_coeffs, harmonic_freqs, harmonic_phases)
+
+# Torque interpolation helper
+def convert_crank_angle_to_time(crank_angles, engine_speed_rpm):
+    engine_speed_rps = engine_speed_rpm / 60.0
+    time_per_rev = 1.0 / engine_speed_rps
+    time_per_deg = time_per_rev / 360.0
+    return crank_angles * time_per_deg
+
+# ODE
+def torque_driven_motor_ode(t, y, M, C, K, time_signal, synthetic_torque):
+    x = y[:N]
+    v = y[N:]
+    T_motor = np.interp(t, time_signal, synthetic_torque)
+    f_ext = np.zeros(N)
+    f_ext[-1] = T_motor
+    a = np.linalg.solve(M, f_ext - C @ v - K @ x)
+    return np.concatenate((v, a))
+
+
+peak_to_peak_twist_dof0 = []
+# Run sweep
+for rpm in sweep_rpm:
+    t_signal = convert_crank_angle_to_time(angles, rpm)
+    y0 = np.zeros(2 * N)
+    t_eval = np.linspace(0, 0.5, 1500)  # short window
+    sol = solve_ivp(
+        fun=lambda t, y: torque_driven_motor_ode(t, y, M, C, K, t_signal, synthetic_torque),
+        t_span=(0, 0.5),
+        y0=y0,
+        t_eval=t_eval,
+        method='Radau'
+    )
+    twist_deg = sol.y[0, :] * (180 / np.pi)
+    twist_centered = twist_deg - np.mean(twist_deg)  # swing angle
+
+    rms = np.sqrt(np.mean(twist_centered**2))
+    p2p = np.max(twist_deg) - np.min(twist_deg)
+    rms_twist_dof0.append(rms)
+    peak_to_peak_twist_dof0.append(p2p)
+
+# Plot resonance curve
+# plt.figure(figsize=(9, 5))
+# plt.plot(sweep_rpm, rms_twist_dof0, marker='o', color='blue', label='Simulated RMS Twist DOF 0')
+# plt.xlabel('Drehzahl NW [RPM]')
+# plt.ylabel('RMS Schwingwinkel [Grad]')
+# plt.title('Torsional Vibration vs. RPM at DOF 0')
+# plt.grid(True)
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
+
+# --- Modal Analysis (Natural Frequencies and Mode Shapes) ---
+from scipy.linalg import eig
+
+# Eigenvalue problem: K * phi = omega^2 * M * phi
+eigvals, eigvecs = eig(K, M)
+eigvals = np.real(eigvals)
+eigvecs = np.real(eigvecs)
+
+# Sort by frequency
+idx_sorted = np.argsort(eigvals)
+eigvals = eigvals[idx_sorted]
+eigvecs = eigvecs[:, idx_sorted]
+
+# Frequencies in Hz
+natural_freqs_hz = np.sqrt(eigvals) / (2 * np.pi)
+
+# Normalize mode shapes for plotting
+mode_shapes = eigvecs / np.max(np.abs(eigvecs), axis=0)
+
+# Plot first 5 mode shapes
+plt.figure(figsize=(10, 6))
+for i in range(min(5, N)):
+    plt.plot(np.arange(N), mode_shapes[:, i], marker='o', label=f'Mode {i+1} ({natural_freqs_hz[i]:.1f} Hz)')
+plt.xticks(np.arange(N))
+plt.xlabel('DOF Index')
+plt.ylabel('Normalized Mode Shape')
+plt.title('First 5 Mode Shapes')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Print frequencies
+print("Natural frequencies (Hz):")
+for i, f in enumerate(natural_freqs_hz[:min(10, N)]):
+    print(f"Mode {i+1}: {f:.2f} Hz")
+
+
+# plt.plot(synthetic_torque)
+
+plt.figure(figsize=(10, 6))
+plt.plot(sweep_rpm, rms_twist_dof0, 'o-', label='RMS Twist [°]', color='blue')
+plt.plot(sweep_rpm, peak_to_peak_twist_dof0, 's--', label='Peak-to-Peak Twist [°]', color='red')
+plt.xlabel('Drehzahl NW [RPM]')
+plt.ylabel('Twist Amplitude [Grad]')
+plt.title('Torsional Vibration vs. RPM at DOF 0')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()

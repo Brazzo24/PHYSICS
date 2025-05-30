@@ -136,10 +136,7 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
       - Reactive power in springs (P_spring)
       - Inertial reactive power (Q_mass)
       - Reaction force at boundary (F_bound)
-      - Phase angles of displacement (phase_vals)
-    
-    Inputs:
-        - F_ext: (N, len(f_vals)) complex-valued excitation per DOF and frequency
+      - NEW: Phase angles of displacement (phase_vals)
     """
     N = len(m)
     num_points = len(f_vals)
@@ -159,12 +156,8 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
         w = 2 * np.pi * f
         # Dynamic stiffness for free chain
         D = K + 1j*w*C - (w**2)*M
-
-        # Extract excitation at current frequency (shape (N,))
-        F_ext_i = F_ext[:, i]
-
-        # Build augmented system
-        A_aug, b_aug = build_augmented_system(D, F_ext_i)
+        # Augmented system to enforce x_{N-1} = 0
+        A_aug, b_aug = build_augmented_system(D, F_ext)
         sol = np.linalg.solve(A_aug, b_aug)
         
         X = sol[0:N]  # Displacement solution
@@ -174,9 +167,11 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
         # Acceleration (a = -w^2*x)
         A_vals[:, i] = -w**2 * X
         
-        # Velocity (v = j*w * x)
+        # Velocity (v = w * X)
+        V_vals[:, i] = w * X
+
+        # Velocity for power calculations: V = j*w*x
         V = 1j * w * X
-        V_vals[:, i] = V
         
         # Damper and spring power
         for j in range(1, N):
@@ -187,11 +182,11 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
             # Reactive power in springs
             P_spring[j-1, i] = k_inter[j-1] * (X_rel * np.conjugate(V_rel))
         
-        # Inertial reactive power
+        # Inertial reactive power per mass (peak amplitude convention)
         Q_mass[i, :] = 1.0 * w * m * (np.abs(V)**2)
     
-    # Phase angle of each DOF's displacement
-    phase_vals = np.angle(X_vals)
+    # NEW: Phase angle of each DOF's displacement (relative to a real forcing)
+    phase_vals = np.angle(X_vals)  # shape (N, num_points)    
 
     return {
         'X_vals': X_vals,
@@ -201,5 +196,5 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
         'P_spring': P_spring,
         'Q_mass': Q_mass,
         'F_bound': F_bound_array,
-        'phase_vals': phase_vals,
+        'phase_vals': phase_vals,  # ADDED
     }

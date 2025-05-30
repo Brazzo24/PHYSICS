@@ -5,7 +5,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import eigh, eig
-from FDcalculations import*
+from FDcalculations_ import*
 from plotting import *
 
 # Optionally import the recommender module
@@ -64,6 +64,7 @@ def main():
     if COMPUTE_FORCED_RESPONSE:
         response = forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext)
         X_vals = response['X_vals']
+        V_vals = response['V_vals']
         A_vals = response['A_vals']
         P_damp = response['P_damp']
         P_spring = response['P_spring']
@@ -72,7 +73,7 @@ def main():
         phase_vals = response['phase_vals']
         
         if PLOT_OVERVIEW_FORCED_RESPONSE:
-            plot_forced_response_overview(f_vals, X_vals, A_vals, P_damp, P_spring, Q_mass, F_bound, m)
+            plot_forced_response_overview(f_vals, X_vals, V_vals, A_vals, P_damp, P_spring, Q_mass, F_bound, m)
         
         # if PLOT_EXCITATION_POWER:
         #     plot_excitation_power(f_vals, X_vals)

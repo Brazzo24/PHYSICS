@@ -10,6 +10,7 @@ from sensitivity_ranking import rank_parameter_influence
 from sweep_batch_runner import batch_sweep_and_rank
 from sweep_debugger import debug_parameter_sweep
 from sweep_plot_curves import plot_energy_vs_parameter
+from excitation_generator import create_engine_excitation
 import os
 import pickle
 import json
@@ -29,27 +30,11 @@ FULL_RANKING = False
 
 
 def define_system():
-    m = np.array([1.21e-2, 3.95e-4, 7.92e-4,
-                  1.02e-3, 1.42e-3, 1.12e-4, 1.22e-3, 1.35e-3,
-                  7.73e-2, 2.69e+1])
+    m = np.array([1.21e-2, 0.0001, 0.018,]) # kgm^2
     # c_inter = np.array([0.05] * 9)
-    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05])
-    k_inter = np.array([2.34e4, 1.62e5, 1.81e3, 1.10e5, 1.10e5,
-                        2.72e4, 4.97e3, 2.73e2, 8.57e2])
+    c_inter = np.array([0.05, 0.05])
+    k_inter = np.array([2.34e4, 2.4]) #Nm/rad
 
-    m[0] *= 1.0 * 1.5
-    m[8] *= 1.2
-    k_inter[2] *= 1.0 # Primary Damper Stiffness
-    k_inter[6] *= 1.0 # chain stiffness
-    k_inter[7] *= 1.0 / 1.5 # hub stiffness
-    k_inter[8] *= 1.8 # tyre stiffness
-
-    c_inter[0] *= 1.0 # gear 1
-    c_inter[2] *= 1.0 # primary damper damping
-    c_inter[6] *= 1.0 # Chain Damping
-    c_inter[7] *= 1.0 # RWD Damping
-    c_inter[8] *= 1.0 # tyre damping
-    
 
     dof_labels = [
         "Crankshaft", "CRCS", "PG", "Clutch1",
@@ -61,10 +46,26 @@ def define_system():
 def run_analysis():
     m, c_inter, k_inter, dof_labels = define_system()
     N = len(m)
-    F_ext = np.zeros(N, dtype=complex)
-    F_ext[0] = 1.0
-    F_ext[8] = -1.0
     f_vals = np.linspace(0.1, 400.0, 10000)
+    # define harmonics: (order, real_part, imag_part)
+    harmonics = [
+        (0.5, 10, 0),
+        (1, 100, 50),
+        (1.5, 20, 0),
+        (2, 50, 0),
+        (2.5, 5, 0),
+        (3, 10, 0)
+    ]
+    engine_speed_rpm = 9000 # example speed
+
+    # frequency-dependent excitation array
+    excitation_array = create_engine_excitation(f_vals, harmonics, engine_speed_rpm)
+    # F_ext = np.zeros(N, dtype=complex)
+    # F_ext[0] = excitation_array
+    F_ext = np.zeros((N, len(f_vals)), dtype=complex)
+    F_ext[0, :] = excitation_array 
+    # F_ext[-1] = -1.0
+    
     print(F_ext)
 
     if COMPUTE_FORCED_RESPONSE:

@@ -5,7 +5,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import eigh, eig
-from FDcalculations import*
+from FDcalculations_ import*
 from plotting import *
 
 # Optionally import the recommender module
