@@ -25,7 +25,7 @@ USE_RECOMMENDER = False
 # Flags
 RUN_SENSITIVITY_ANALYSIS = False
 RUN_SENSITIVITY_ANALYSIS_2D = False
-FULL_RANKING = False
+FULL_RANKING = True
 
 
 def define_system():
