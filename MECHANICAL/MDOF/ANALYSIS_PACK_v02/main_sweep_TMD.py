@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import eigh, eig
-from FDCalculations_branch import*
+from FDCalculations_TMD import*
 from plotting import *
 
 # Optionally import the recommender module
@@ -28,7 +28,7 @@ def main():
     #               2.73e-1, 2.69e+1])  # kgm^2
 
     # Add DMF between DOF0 and the rest
-    f_dmf = 25.65 # Hz
+    f_dmf = 25.0 # Hz
     m_dmf = 8e-3
     k_dmf = ((2*np.pi * f_dmf) ** 2) * m_dmf
     c_dmf = 2 * np.sqrt(m_dmf * k_dmf) * 0.15 # last factor is zeta, being the amount of critical damping (0 - 1.0)
@@ -65,14 +65,20 @@ def main():
     
 
     # Branch parameters
-    m_branch = 0.002
-    c_branch = 0.5
-    k_branch = 5e4
-    c_to_ground = 0.5
+    m_branch = 2e-3
+    f_target = 25  # Hz
+    zeta = 0.1     # damping ratio
+    k_branch = (2 * np.pi * f_target) ** 2 * m_branch
+    c_branch = 2 * np.sqrt(m_branch * k_branch) * zeta
+    print("k_branch: ", k_branch)
+    print("c_branch: ", c_branch)
+    # c_branch = 0.5 # Nm/rad
+    # k_branch = 5e2 #
+    c_to_ground = 0.0
 
     # Define connection: connect to DOF 8, new DOF index is len(m)
     # branch_connection = (8, len(m))
-    branch_connection = (5, len(m))
+    branch_connection = (8, len(m))
 
 
     # Augment system

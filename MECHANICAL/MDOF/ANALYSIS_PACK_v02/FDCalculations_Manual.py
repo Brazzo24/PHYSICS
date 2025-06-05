@@ -12,85 +12,73 @@ COMPUTE_MODAL_ENERGY_ANALYSIS = True
 
 # Plotting Flags (these now control whether an overview function is called)
 PLOT_OVERVIEW_FORCED_RESPONSE = True
-PLOT_PHASE_ANGLES = False
+PLOT_PHASE_ANGLES = True
 PLOT_EXCITATION_POWER = True
 PLOT_POLES = False
-PLOT_MODAL_ENERGY = False
+PLOT_MODAL_ENERGY = True
 
 
 # Limit for the number of modes to plot in modal energy overview
 mode_plot_limit = 5
 
 ###############################################################################
+# ALTERNATIVE MATRIX ENTRY POINT (Manual Definition)
+###############################################################################
+
+def free_vibration_analysis_manual(M, K):
+    eigvals, eigvecs = eigh(K, M)
+    omega_n = np.sqrt(np.maximum(eigvals, 0))
+    f_n = omega_n / (2 * np.pi)
+    return f_n, eigvecs
+
+def compute_forced_response_manual(M, C, K, f_vals, F_ext):
+    N = M.shape[0]
+    num_points = len(f_vals)
+    X = np.zeros((N, num_points), dtype=complex)
+    F_bound = np.zeros(num_points, dtype=complex)
+
+    for i, f in enumerate(f_vals):
+        w = 2 * np.pi * f
+        D = K + 1j*w*C - (w**2)*M
+        A_aug, b_aug = build_augmented_system(D, F_ext)
+        sol = np.linalg.solve(A_aug, b_aug)
+        X[:, i] = sol[0:N]
+        F_bound[i] = sol[N]
+    return X, F_bound
+###############################################################################
 # SYSTEM MATRIX BUILDING FUNCTIONS (Free-Chain, No Ground Connection)
 ###############################################################################
-def build_free_chain_matrices(m, c_inter, k_inter, C_ext=None, K_ext=None):
+def build_free_chain_matrices(m, c_inter, k_inter):
     N = len(m)
     M = np.diag(m)
     C = np.zeros((N, N))
     K = np.zeros((N, N))
-    for i in range(len(k_inter)):
+    for i in range(N - 1):
+        # Damping: affects DOF i and i+1
         C[i, i]     += c_inter[i]
         C[i, i+1]   -= c_inter[i]
         C[i+1, i]   -= c_inter[i]
         C[i+1, i+1] += c_inter[i]
-
+        # Stiffness: affects DOF i and i+1
         K[i, i]     += k_inter[i]
         K[i, i+1]   -= k_inter[i]
         K[i+1, i]   -= k_inter[i]
         K[i+1, i+1] += k_inter[i]
-
-    if C_ext is not None:
-        C += C_ext
-    if K_ext is not None:
-        K += K_ext
-
     return M, C, K
-
 
 
 ###############################################################################
 # AUGMENTED SYSTEM FORCED RESPONSE (Enforcing a Boundary Condition)
 ###############################################################################
-def build_augmented_system(D, F_ext, fixed_dof):
+def build_augmented_system(D, F_ext):
     N = D.shape[0]
     A_aug = np.zeros((N+1, N+1), dtype=complex)
     b_aug = np.zeros(N+1, dtype=complex)
     A_aug[0:N, 0:N] = D
-    A_aug[fixed_dof, N] = -1.0
+    A_aug[N-1, N] = -1.0
     b_aug[0:N] = F_ext
-    A_aug[N, fixed_dof] = 1.0  # Enforce x_{N-1} = 0
+    A_aug[N, N-1] = 1.0  # Enforce x_{N-1} = 0
     return A_aug, b_aug
-
-def augment_with_branch(m, c_inter, k_inter, connection, m_branch, c_branch, k_branch, c_to_ground=0.0):
-    i, j = connection  # i = existing DOF, j = new DOF index
-
-    m_aug = np.append(m, m_branch)
-    c_aug = np.append(c_inter, 0.0)  # New DOF
-    k_aug = np.append(k_inter, 0.0)
-
-    N = len(m_aug)
-    C_ext = np.zeros((N, N))
-    K_ext = np.zeros((N, N))
-
-    # Add spring-damper between DOF i and new DOF j (existing branch)
-    C_ext[i, i] += c_branch
-    C_ext[i, j] -= c_branch
-    C_ext[j, i] -= c_branch
-    C_ext[j, j] += c_branch
-
-    K_ext[i, i] += k_branch
-    K_ext[i, j] -= k_branch
-    K_ext[j, i] -= k_branch
-    K_ext[j, j] += k_branch
-
-    # Add damper from DOF j to ground (optional energy sink)
-    if c_to_ground > 0.0:
-        C_ext[j, j] += c_to_ground
-
-    return m_aug, c_aug, k_aug, C_ext, K_ext
-
-
 
 def compute_forced_response_free_chain(m, c_inter, k_inter, f_vals, F_ext):
     N = len(m)
@@ -102,7 +90,7 @@ def compute_forced_response_free_chain(m, c_inter, k_inter, f_vals, F_ext):
     for i, f in enumerate(f_vals):
         w = 2 * np.pi * f
         D = K + 1j*w*C - (w**2)*M
-        A_aug, b_aug = build_augmented_system(D, F_ext, fixed_dof=9)
+        A_aug, b_aug = build_augmented_system(D, F_ext)
         sol = np.linalg.solve(A_aug, b_aug)
         X[:, i] = sol[0:N]
         F_bound[i] = sol[N]
@@ -128,22 +116,14 @@ def compute_poles_free_chain(m, c_inter, k_inter):
 ###############################################################################
 # FREE-VIBRATION ANALYSIS AND MODAL ENERGY DISTRIBUTION
 ###############################################################################
-def free_vibration_analysis_free_chain(m, k_inter, C_ext=None, K_ext=None):
+def free_vibration_analysis_free_chain(m, k_inter):
     N = len(m)
     M, _, K = build_free_chain_matrices(m, np.zeros(N-1), k_inter)
-
-    # If external stiffness matrix (e.g., from a branch) is provided, add it
-    if K_ext is not None:
-        K += K_ext
-
     eigvals, eigvecs = eigh(K, M)
+    # omega_n = np.sqrt(eigvals)
     omega_n = np.sqrt(np.maximum(eigvals, 0))
-    f_n = omega_n / (2 * np.pi)
+    f_n = omega_n / (2*np.pi)
     return f_n, eigvecs, M, K
-
-
-
-
 
 def modal_energy_analysis(m, k_inter, f_n, eigvecs, M):
     N = len(m)
@@ -171,7 +151,7 @@ def modal_energy_analysis(m, k_inter, f_n, eigvecs, M):
 ###############################################################################
 # FORCED RESPONSE POST-PROCESSING
 ###############################################################################
-def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext, C_ext=None, K_ext=None):
+def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext):
     """
     Computes the forced response using the augmented formulation and then derives:
       - Displacement (X_vals)
@@ -194,15 +174,14 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext, C_ext=Non
     F_bound_array = np.zeros(num_points, dtype=complex)
     
     # Build free-chain matrices
-    M, C, K = build_free_chain_matrices(m, c_inter, k_inter, C_ext=C_ext, K_ext=K_ext)
+    M, C, K = build_free_chain_matrices(m, c_inter, k_inter)
     
     for i, f in enumerate(f_vals):
         w = 2 * np.pi * f
         # Dynamic stiffness for free chain
         D = K + 1j*w*C - (w**2)*M
         # Augmented system to enforce x_{N-1} = 0
-        A_aug, b_aug = build_augmented_system(D, F_ext, fixed_dof=9)  # or 9, or any grounded point
-
+        A_aug, b_aug = build_augmented_system(D, F_ext)
         sol = np.linalg.solve(A_aug, b_aug)
         
         X = sol[0:N]  # Displacement solution
@@ -245,7 +224,13 @@ def forced_response_postprocessing(m, c_inter, k_inter, f_vals, F_ext, C_ext=Non
         'phase_vals': phase_vals,  # ADDED
     }
 
-
+def free_vibration_analysis_free_chain(m, k_inter):
+    N = len(m)
+    M, _, K = build_free_chain_matrices(m, np.zeros(N-1), k_inter)
+    eigvals, eigvecs = eigh(K, M)
+    omega_n = np.sqrt(np.maximum(eigvals, 0))
+    f_n = omega_n / (2 * np.pi)
+    return f_n, eigvecs, M, K
 
 def compute_mode_interaction_force(mode_idx, dof_primary, dof_secondary, eigvecs, N, mode='cancel'):
     """
@@ -358,5 +343,3 @@ def plot_energy_sweep(k_range, results):
     plt.legend()
     plt.grid(True)
     plt.show()
-
-

@@ -56,9 +56,9 @@ def main():
     k_inter[8] *= 1.8
 
     # Insert DMF at index 1
-    # m = np.insert(m, 8, m_dmf)
-    # c_inter = np.insert(c_inter, 7, c_dmf)
-    # k_inter = np.insert(k_inter, 7, k_dmf)
+    m = np.insert(m, 8, m_dmf)
+    c_inter = np.insert(c_inter, 7, c_dmf)
+    k_inter = np.insert(k_inter, 7, k_dmf)
     
     print(k_inter)
 
@@ -91,7 +91,7 @@ def main():
     print(F_ext)
     
     # Frequency range for forced response analysis.
-    f_min, f_max = 0.1, 40.0
+    f_min, f_max = 0.1, 200.0
     num_points = 1000
     f_vals = np.linspace(f_min, f_max, num_points)
     

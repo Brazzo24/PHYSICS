@@ -102,7 +102,7 @@ def main():
     c_inter = np.array([0.05]*9)
 
     N = len(m)
-    f_vals = np.linspace(0.1, 40.0, 1000)
+    f_vals = np.linspace(0.1, 40.0, 5000)
     dof_primary = 5
     F_ext = np.zeros(N, dtype=complex)
     F_ext[dof_primary] = 1.0 + 0j
@@ -119,7 +119,7 @@ def main():
             m, k_inter, c_inter, f_vals, F_ext,
             mass_idx, freq_bins,
             k_factors=np.linspace(0.5, 10.0, 20),
-            c_factors=np.linspace(0.5, 10.0, 20),
+            c_factors=np.linspace(0.5, 4.0, 20),
             k_indices=k_target_indices,
             c_indices=c_target_indices
         )
