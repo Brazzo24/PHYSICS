@@ -65,9 +65,9 @@ def main():
     
 
     # Branch parameters
-    m_branch = 2e-3
+    m_branch = 2e-4
     f_target = 25  # Hz
-    zeta = 0.1     # damping ratio
+    zeta = 0.01     # damping ratio
     k_branch = (2 * np.pi * f_target) ** 2 * m_branch
     c_branch = 2 * np.sqrt(m_branch * k_branch) * zeta
     print("k_branch: ", k_branch)
@@ -78,7 +78,7 @@ def main():
 
     # Define connection: connect to DOF 8, new DOF index is len(m)
     # branch_connection = (8, len(m))
-    branch_connection = (8, len(m))
+    branch_connection = (0, len(m))
 
 
     # Augment system
@@ -105,7 +105,7 @@ def main():
     phi_mode3 = eigvecs[:, mode_idx]
     phi_mode3 /= np.max(np.abs(phi_mode3))
 
-    dof_primary = 5
+    dof_primary = 8
     dof_secondary = 0
     F_primary = 1.0 + 0j
     F_secondary = 0.0 + 0j

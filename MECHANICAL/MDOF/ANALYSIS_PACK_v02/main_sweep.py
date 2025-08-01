@@ -40,25 +40,25 @@ def main():
     # ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
     # c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
 
-    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
+    c_inter = np.array([10.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
 
     # k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
     #                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
     
-    k_inter = np.array([2.34e4, 1.62e5, 1.1e3, 1.10e5, 1.10e5,
+    k_inter = np.array([2.34e4, 1.62e5, 1.1e5, 1.10e5, 1.10e5,
                     2.72e4, 4.97e3, 2.73e2, 8.57e2]) # Nm/rad
     
 
-    m[0] *= 1.0
-    m[8] *= 1.2
+    m[0] *= 1.2
+    m[8] *= 1.0
     k_inter[2] *= 1.0
-    k_inter[7] *= 1.0
-    k_inter[8] *= 1.8
+    k_inter[7] *= 0.5
+    k_inter[8] *= 1.9
 
     # Insert DMF at index 1
-    m = np.insert(m, 8, m_dmf)
-    c_inter = np.insert(c_inter, 7, c_dmf)
-    k_inter = np.insert(k_inter, 7, k_dmf)
+    # m = np.insert(m, 8, m_dmf)
+    # c_inter = np.insert(c_inter, 7, c_dmf)
+    # k_inter = np.insert(k_inter, 7, k_dmf)
     
     print(k_inter)
 
@@ -75,7 +75,7 @@ def main():
     phi_mode3 = eigvecs[:, mode_idx]
     phi_mode3 /= np.max(np.abs(phi_mode3))
 
-    dof_primary = 5
+    dof_primary = 8
     dof_secondary = 0
     F_primary = 1.0 + 0j
     F_secondary = 0.0 + 0j
