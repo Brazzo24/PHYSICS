@@ -1,0 +1,10 @@
+Spring;stiffness Nmdeg;damping NmsRad;ratio
+Gear_cs_crcs;4152.56;1.66E-05;1.125
+Gear_crcs_pg;3569.56;1.66E-05;1.8148
+primaryDamper;80.91;0.01655;1
+DiscPack;8000;0.001655;1
+Clutch_prim;8000;1.00E-07;1
+gearbox;1979.4;1.66E-05;1.17647
+chain;500.6;1.66E-01;2.5365
+RWD;500.6;1.66E-02;1
+Tyre;1555.29;1.66E-02;1
