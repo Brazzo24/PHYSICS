@@ -1,0 +1,11 @@
+Body;Inertia kgm^2
+Crank;1.21E-02
+CRCS;0.0005
+PG;0.0033
+Clutch1;0.00424
+Clutch2;0.00591
+Input;0.00046826
+Output;0.0070247
+Hub;0.05
+Wheel;10.15
+Road;1000
