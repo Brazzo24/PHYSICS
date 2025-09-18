@@ -1,0 +1,3 @@
+mk2 includes the reduced inertia of the moving bike to model
+the reaction of the driveline to acceleration and deceleration of
+the full vehicle.
