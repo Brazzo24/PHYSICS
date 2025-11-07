@@ -36,7 +36,7 @@ def main():
     # ([Gear, Gear, Primary Damper, Clutch, Spline, GBX, Chain, RWD, Tyre])
     # c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
 
-    c_inter = np.array([10.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
+    c_inter = np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # Nm.s/rad
 
     # k_inter = np.array([2.34e4, 1.62e5, 1.11e3, 1.10e5, 1.10e5,
     #                     2.72e4, 4.97e3, 7.73e2, 8.57e2]) # Nm/rad
