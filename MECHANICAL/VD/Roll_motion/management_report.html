@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rear Tyre Load Loss — Engineering Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0c10;
+    --bg2:       #111318;
+    --bg3:       #181c24;
+    --border:    #252a35;
+    --accent:    #f0a500;
+    --accent2:   #e05252;
+    --text:      #e8eaf0;
+    --muted:     #6b7385;
+    --c-base:    #2563eb;
+    --c-slow:    #16a34a;
+    --c-com:     #ea580c;
+    --c-tc:      #dc2626;
+    --c-asq:     #7c3aed;
+    --static:    #555e72;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 2.5rem 3rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 1rem;
+  }
+  .header-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--text);
+  }
+  header h1 span { color: var(--accent); }
+  .header-meta {
+    text-align: right;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .header-meta strong { color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 500; }
+
+  /* ── LAYOUT ── */
+  main { max-width: 1320px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+
+  section { margin-bottom: 3.5rem; }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  section > h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.9rem;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── FINDING CARDS ── */
+  .findings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+  }
+  .finding-card {
+    background: var(--bg2);
+    padding: 1.6rem 1.8rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .finding-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--accent);
+  }
+  .finding-card.danger::before { background: var(--accent2); }
+  .finding-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.2rem;
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  .finding-card.danger .finding-number { color: var(--accent2); }
+  .finding-unit {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.08em;
+    margin-left: 2px;
+  }
+  .finding-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    font-weight: 400;
+  }
+  .finding-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    font-family: 'DM Mono', monospace;
+    opacity: 0.7;
+  }
+
+  /* ── CAUSAL CHAIN ── */
+  .causal-chain {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .cause-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.9rem 1.2rem;
+    flex: 1;
+    min-width: 130px;
+    text-align: center;
+    position: relative;
+  }
+  .cause-box .cause-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .cause-box .cause-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .cause-box.highlight { border-color: var(--accent); }
+  .cause-box.highlight .cause-value { color: var(--accent); }
+  .cause-box.bad { border-color: var(--accent2); }
+  .cause-box.bad .cause-value { color: var(--accent2); }
+  .cause-arrow {
+    color: var(--muted);
+    font-size: 1.2rem;
+    padding: 0 0.3rem;
+    flex-shrink: 0;
+  }
+
+  /* ── CHART PANELS ── */
+  .chart-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .chart-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.4rem 1.6rem 1.2rem;
+  }
+  .chart-panel.full { grid-column: 1 / -1; }
+  .chart-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+  }
+  .chart-subtitle {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .chart-wrap { position: relative; height: 240px; }
+  .chart-wrap.tall { height: 300px; }
+
+  /* ── LEGEND ── */
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.5rem;
+    margin-top: 0.8rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-line {
+    width: 18px; height: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── STRATEGY TABLE ── */
+  .strategy-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .strategy-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    text-align: left;
+    font-weight: 400;
+  }
+  .strategy-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .strategy-table tr:last-child td { border-bottom: none; }
+  .strategy-table tr:hover td { background: var(--bg3); }
+  .strat-name { display: flex; align-items: center; gap: 0.6rem; font-weight: 500; }
+  .strat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pill {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  .pill-green { background: rgba(22,163,74,0.18); color: #4ade80; }
+  .pill-red   { background: rgba(220,38,38,0.18); color: #f87171; }
+  .pill-amber { background: rgba(240,165,0,0.18);  color: var(--accent); }
+  .bar-cell { width: 120px; }
+  .bar-bg {
+    background: var(--bg3);
+    border-radius: 2px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+  .number-good { color: #4ade80; font-family: 'DM Mono', monospace; }
+  .number-bad  { color: #f87171; font-family: 'DM Mono', monospace; }
+  .number-neu  { color: var(--text); font-family: 'DM Mono', monospace; }
+
+  /* ── RECOMMENDATION BOX ── */
+  .rec-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .rec-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.4rem 1.6rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .rec-card.primary {
+    border-color: var(--accent);
+    background: rgba(240,165,0,0.04);
+    grid-column: 1 / -1;
+  }
+  .rec-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.35;
+    flex-shrink: 0;
+    width: 2rem;
+  }
+  .rec-rank.hi { opacity: 1; }
+  .rec-body h3 {
+    font-weight: 500;
+    font-size: 0.92rem;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+  .rec-body p {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .rec-tag {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+    background: rgba(240,165,0,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(240,165,0,0.2);
+  }
+  .rec-tag.eng { background: rgba(124,58,237,0.12); color: #a78bfa; border-color: rgba(124,58,237,0.2); }
+  .rec-tag.soft { background: rgba(22,163,74,0.12); color: #4ade80; border-color: rgba(22,163,74,0.2); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 800px) {
+    header { padding: 1.5rem; grid-template-columns: 1fr; }
+    .header-meta { text-align: left; }
+    main { padding: 1.5rem 1rem 3rem; }
+    .chart-grid-2, .chart-grid-3, .rec-grid { grid-template-columns: 1fr; }
+    .rec-card.primary { grid-column: auto; }
+    .causal-chain { gap: 0.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-eyebrow">Vehicle Dynamics · Engineering Simulation Report</div>
+    <h1>Rear Tyre <span>Load Loss</span><br>at Corner Exit</h1>
+  </div>
+  <div class="header-meta">
+    <strong>Motorbike Roll Recovery Analysis</strong><br>
+    Mozzi Screw Axis · Pacejka Magic Formula<br>
+    Scenario: 32° apex lean, v = 14 m/s<br>
+    Throttle demand: 600 N longitudinal
+  </div>
+</header>
+
+<main>
+
+  <!-- ── SECTION 1: KEY FINDINGS ── -->
+  <section>
+    <div class="section-label">01 — Key Findings</div>
+    <h2>The Problem in Numbers</h2>
+
+    <div class="findings-grid">
+      <div class="finding-card danger">
+        <div class="finding-number">55<span class="finding-unit">%</span></div>
+        <div class="finding-label">Rear load lost at peak roll rate</div>
+        <div class="finding-sub">486 N vs. 1079 N static</div>
+      </div>
+      <div class="finding-card danger">
+        <div class="finding-number">1.31<span class="finding-unit">s</span></div>
+        <div class="finding-label">Duration of rear wheel spin (baseline)</div>
+        <div class="finding-sub">Out of 2.5 s corner-exit window</div>
+      </div>
+      <div class="finding-card">
+        <div class="finding-number">2.79<span class="finding-unit">m/rad</span></div>
+        <div class="finding-label">Peak Mozzi screw pitch</div>
+        <div class="finding-sub">Encodes forward axis tilt → front loading</div>
+      </div>
+      <div class="finding-card">
+        <div class="finding-number">114<span class="finding-unit">N</span></div>
+        <div class="finding-label">Peak traction deficit (baseline)</div>
+        <div class="finding-sub">Demand exceeds grip capacity</div>
+      </div>
+    </div>
+
+    <!-- Causal chain -->
+    <div class="causal-chain">
+      <div class="cause-box highlight">
+        <div class="cause-title">High Roll Rate</div>
+        <div class="cause-value">φ̇ → ω_x</div>
+      </div>
+      <div class="cause-arrow">→</div>
+      <div class="cause-box highlight">
+        <div class="cause-title">Mozzi Axis Tilts</div>
+        <div class="cause-value">Pitch h &gt; 0</div>
+      </div>
+      <div class="cause-arrow">→</div>
+      <div class="cause-box">
+        <div class="cause-title">Inertial Reaction</div>
+        <div class="cause-value">Front Loaded</div>
+      </div>
+      <div class="cause-arrow">→</div>
+      <div class="cause-box bad">
+        <div class="cause-title">Rear Unloaded</div>
+        <div class="cause-value">F_z↓ 55%</div>
+      </div>
+      <div class="cause-arrow">→</div>
+      <div class="cause-box bad">
+        <div class="cause-title">Grip Exceeded</div>
+        <div class="cause-value">Rear Spins</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 2: CORE CHARTS ── -->
+  <section>
+    <div class="section-label">02 — Simulation Results</div>
+    <h2>Baseline: Anatomy of a Spin Event</h2>
+
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Mozzi Screw Pitch vs. Rear Load</div>
+        <div class="chart-subtitle">Positive pitch → axis tilts forward → rear unloaded</div>
+        <div class="chart-wrap tall">
+          <canvas id="chartPitchLoad"></canvas>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Traction Budget — Baseline</div>
+        <div class="chart-subtitle">Red zone: throttle demand exceeds grip capacity → wheel spin</div>
+        <div class="chart-wrap tall">
+          <canvas id="chartTraction"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 3: STRATEGY COMPARISON ── -->
+  <section>
+    <div class="section-label">03 — Improvement Strategies</div>
+    <h2>Four Interventions Compared</h2>
+
+    <div class="chart-grid-2" style="margin-bottom:1.5rem">
+      <div class="chart-panel">
+        <div class="chart-title">Rear Vertical Load — All Strategies</div>
+        <div class="chart-subtitle">Higher = more grip available for acceleration</div>
+        <div class="chart-wrap tall"><canvas id="chartFrear"></canvas></div>
+        <div class="legend-row" id="legendFrear"></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Traction Margin — All Strategies</div>
+        <div class="chart-subtitle">Below zero line = spinning. Higher = safer acceleration</div>
+        <div class="chart-wrap tall"><canvas id="chartTractionAll"></canvas></div>
+        <div class="legend-row" id="legendTraction"></div>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <div class="chart-panel" style="padding:1.6rem 1.8rem">
+      <div class="chart-title" style="margin-bottom:1rem">Strategy Scorecard</div>
+      <table class="strategy-table" id="scorecard"></table>
+    </div>
+  </section>
+
+  <!-- ── SECTION 4: PHASE PORTRAIT ── -->
+  <section>
+    <div class="section-label">04 — Diagnostic View</div>
+    <h2>Phase Portrait: Mozzi Pitch vs. Rear Load Deficit</h2>
+
+    <div class="chart-panel full">
+      <div class="chart-subtitle">Each strategy traces a path through risk space. Top-right corner = maximum spin danger. Anti-squat geometry shifts the entire trajectory furthest from danger.</div>
+      <div class="chart-wrap" style="height:340px"><canvas id="chartPhase"></canvas></div>
+      <div class="legend-row" id="legendPhase"></div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 5: RECOMMENDATIONS ── -->
+  <section>
+    <div class="section-label">05 — Recommendations</div>
+    <h2>Proposed Actions</h2>
+
+    <div class="rec-grid">
+      <div class="rec-card primary">
+        <div class="rec-rank hi">1</div>
+        <div class="rec-body">
+          <h3>Increase Rear Anti-Squat via Suspension Geometry</h3>
+          <p>A +15% anti-squat adjustment raises the rear load baseline from 1079 N to 1241 N static, eliminating spin entirely while preserving full throttle authority. This is the only strategy that improves the physical situation rather than managing it electronically. Achievable via swingarm pivot height or linkage ratio adjustment.</p>
+          <span class="rec-tag eng">Hardware · Geometry</span>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-rank">2</div>
+        <div class="rec-body">
+          <h3>Traction Control Calibration</h3>
+          <p>Implementing TC with an 80% load-ratio threshold eliminates spin with zero additional hardware. Reduces peak throttle by ~44% during the critical 0.4–0.8 s window. Best used in combination with strategy 1 as a safety net.</p>
+          <span class="rec-tag soft">Software · Immediate</span>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-rank">3</div>
+        <div class="rec-body">
+          <h3>Lower Centre of Mass</h3>
+          <p>A 100 mm CoM reduction reduces the Mozzi axis pitch moment arm, decreasing peak |h| by 13%. Achievable through rider position or suspension lowering. Moderate effect on its own; valuable combined with anti-squat.</p>
+          <span class="rec-tag eng">Setup · Medium Term</span>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-rank">4</div>
+        <div class="rec-body">
+          <h3>Rider Technique: Delay Peak Throttle</h3>
+          <p>Delaying full throttle application by ~0.3 s until lean angle drops below 15° ensures the Mozzi axis pitch has returned toward zero before maximum traction demand. Minimal measurable effect on lap time (&lt;0.1 s), eliminates the spin risk.</p>
+          <span class="rec-tag soft">Technique · No Cost</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>Mozzi Screw Axis Analysis · Pacejka MF Tyre Model · Python / SciPy RK45</span>
+  <span>Confidential — Engineering Department</span>
+</footer>
+
+<script>
+// ── EMBEDDED SIMULATION DATA ──
+const SIM = {"series":{"Baseline":{"color":"#2563eb","t":[0.0,0.0209,0.0417,0.0626,0.0835,0.1043,0.1252,0.1461,0.1669,0.1878,0.2087,0.2295,0.2504,0.2713,0.2922,0.313,0.3339,0.3548,0.3756,0.3965,0.4174,0.4382,0.4591,0.48,0.5008,0.5217,0.5426,0.5634,0.5843,0.6052,0.626,0.6469,0.6678,0.6886,0.7095,0.7304,0.7513,0.7721,0.793,0.8139,0.8347,0.8556,0.8765,0.8973,0.9182,0.9391,0.9599,0.9808,1.0017,1.0225,1.0434,1.0643,1.0851,1.106,1.1269,1.1477,1.1686,1.1895,1.2104,1.2312,1.2521,1.273,1.2938,1.3147,1.3356,1.3564,1.3773,1.3982,1.419,1.4399,1.4608,1.4816,1.5025,1.5234,1.5442,1.5651,1.586,1.6068,1.6277,1.6486,1.6694,1.6903,1.7112,1.7321,1.7529,1.7738,1.7947,1.8155,1.8364,1.8573,1.8781,1.899,1.9199,1.9407,1.9616,1.9825,2.0033,2.0242,2.0451,2.0659,2.0868,2.1077,2.1285,2.1494,2.1703,2.1912,2.212,2.2329,2.2538,2.2746,2.2955,2.3164,2.3372,2.3581,2.379,2.3998,2.4207,2.4416,2.4624,2.4833],"pitch":[0.0,0.0686,0.1333,0.1921,0.2432,0.2852,0.3167,0.3368,0.3449,0.3408,0.3248,0.2978,0.2613,0.2173,0.1685,0.1185,0.0714,0.0327,0.0077,0.0,0.0066,0.0091,-0.033,-0.1714,-0.4283,-0.7606,-1.0745,-1.2557,-1.3006,-1.1978,-0.9569,-0.6143,-0.3159,-0.1373,-0.0511,-0.0166,-0.0047,-0.0012,-0.0001,0.0008,0.0033,0.0114,0.0346,0.0921,0.214,0.4298,0.7397,1.0908,1.4004,1.6167,1.7615,1.7138,1.5211,1.1364,0.7481,0.4423,0.2278,0.0971,0.0327,0.0066,-0.0016,-0.003,-0.0022,-0.0011,-0.0001,0.0009,0.002,0.0028,0.0023,-0.0027,-0.0187,-0.0583,-0.1413,-0.2934,-0.5364,-0.8688,-1.2457,-1.5679,-1.7103,-1.7312,-1.5924,-1.364,-1.025,-0.6686,-0.4083,-0.239,-0.1325,-0.0654,-0.0189,0.021,0.0665,0.1304,0.2284,0.3794,0.6011,0.9004,1.2618,1.6456,2.0087,2.3491,2.7176,2.7275,2.7597,2.2686,1.6824,1.2114,0.8435,0.5607,0.3512,0.2051,0.1151,0.0629,0.0327,0.0142,0.0009,-0.0119,-0.0284,-0.054,-0.0962,-0.1665],"F_rear":[1079.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,731.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,606.8,485.6,485.6,846.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1237.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,868.9,598.4,499.8,549.2,775.0,1210.2,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6],"Fx_avail":[1079.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,731.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,606.8,485.6,485.6,846.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1237.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,868.9,598.4,499.8,549.2,775.0,1210.2,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6],"Fx_demand":[600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0,600.0],"trac_margin":[479.1,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,1072.6,1072.6,131.1,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,6.8,-114.4,-114.4,246.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,1072.6,1072.6,637.6,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,268.9,-1.6,-100.2,-50.8,175.0,610.2,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6]},"Slower pick-up":{"color":"#16a34a","t":[0.0,0.0209,0.0417,0.0626,0.0835,0.1043,0.1252,0.1461,0.1669,0.1878,0.2087,0.2295,0.2504,0.2713,0.2922,0.313,0.3339,0.3548,0.3756,0.3965,0.4174,0.4382,0.4591,0.48,0.5008,0.5217,0.5426,0.5634,0.5843,0.6052,0.626,0.6469,0.6678,0.6886,0.7095,0.7304,0.7513,0.7721,0.793,0.8139,0.8347,0.8556,0.8765,0.8973,0.9182,0.9391,0.9599,0.9808,1.0017,1.0225,1.0434,1.0643,1.0851,1.106,1.1269,1.1477,1.1686,1.1895,1.2104,1.2312,1.2521,1.273,1.2938,1.3147,1.3356,1.3564,1.3773,1.3982,1.419,1.4399,1.4608,1.4816,1.5025,1.5234,1.5442,1.5651,1.586,1.6068,1.6277,1.6486,1.6694,1.6903,1.7112,1.7321,1.7529,1.7738,1.7947,1.8155,1.8364,1.8573,1.8781,1.899,1.9199,1.9407,1.9616,1.9825,2.0033,2.0242,2.0451,2.0659,2.0868,2.1077,2.1285,2.1494,2.1703,2.1912,2.212,2.2329,2.2538,2.2746,2.2955,2.3164,2.3372,2.3581,2.379,2.3998,2.4207,2.4416,2.4624,2.4833],"F_rear":[1079.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,485.6,1672.6,1672.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,739.7,485.6,485.6,741.0,1669.2,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1110.7,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1586.4,813.6,574.1,496.0,569.5,825.3,1295.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6],"trac_margin":[479.1,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,-114.4,1072.6,1072.6,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,139.7,-114.4,-114.4,141.0,1069.2,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,1072.6,1072.6,510.7,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,986.4,213.6,-25.9,-104.0,-30.5,225.3,695.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6]},"Lower CoM":{"color":"#ea580c","t":[0.0,0.0209,0.0417,0.0626,0.0835,0.1043,0.1252,0.1461,0.1669,0.1878,0.2087,0.2295,0.2504,0.2713,0.2922,0.313,0.3339,0.3548,0.3756,0.3965,0.4174,0.4382,0.4591,0.48,0.5008,0.5217,0.5426,0.5634,0.5843,0.6052,0.626,0.6469,0.6678,0.6886,0.7095,0.7304,0.7513,0.7721,0.793,0.8139,0.8347,0.8556,0.8765,0.8973,0.9182,0.9391,0.9599,0.9808,1.0017,1.0225,1.0434,1.0643,1.0851,1.106,1.1269,1.1477,1.1686,1.1895,1.2104,1.2312,1.2521,1.273,1.2938,1.3147,1.3356,1.3564,1.3773,1.3982,1.419,1.4399,1.4608,1.4816,1.5025,1.5234,1.5442,1.5651,1.586,1.6068,1.6277,1.6486,1.6694,1.6903,1.7112,1.7321,1.7529,1.7738,1.7947,1.8155,1.8364,1.8573,1.8781,1.899,1.9199,1.9407,1.9616,1.9825,2.0033,2.0242,2.0451,2.0659,2.0868,2.1077,2.1285,2.1494,2.1703,2.1912,2.212,2.2329,2.2538,2.2746,2.2955,2.3164,2.3372,2.3581,2.379,2.3998,2.4207,2.4416,2.4624,2.4833],"F_rear":[1079.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1672.6,1001.5,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,845.7,485.6,485.6,485.6,485.6,486.8,1351.0,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1672.6,1310.0,567.5,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1465.7,658.5,485.6,485.6,485.6,485.6,485.6,577.2,1111.0],"trac_margin":[479.1,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,1072.6,1072.6,1072.6,401.5,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,245.7,-114.4,-114.4,-114.4,-114.4,-113.2,751.0,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,-114.4,-114.4,1072.6,1072.6,1072.6,710.0,-32.5,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,-114.4,1072.6,865.7,58.5,-114.4,-114.4,-114.4,-114.4,-114.4,-22.8,511.0]},"Traction Control":{"color":"#dc2626","t":[0.0,0.0209,0.0417,0.0626,0.0835,0.1043,0.1252,0.1461,0.1669,0.1878,0.2087,0.2295,0.2504,0.2713,0.2922,0.313,0.3339,0.3548,0.3756,0.3965,0.4174,0.4382,0.4591,0.48,0.5008,0.5217,0.5426,0.5634,0.5843,0.6052,0.626,0.6469,0.6678,0.6886,0.7095,0.7304,0.7513,0.7721,0.793,0.8139,0.8347,0.8556,0.8765,0.8973,0.9182,0.9391,0.9599,0.9808,1.0017,1.0225,1.0434,1.0643,1.0851,1.106,1.1269,1.1477,1.1686,1.1895,1.2104,1.2312,1.2521,1.273,1.2938,1.3147,1.3356,1.3564,1.3773,1.3982,1.419,1.4399,1.4608,1.4816,1.5025,1.5234,1.5442,1.5651,1.586,1.6068,1.6277,1.6486,1.6694,1.6903,1.7112,1.7321,1.7529,1.7738,1.7947,1.8155,1.8364,1.8573,1.8781,1.899,1.9199,1.9407,1.9616,1.9825,2.0033,2.0242,2.0451,2.0659,2.0868,2.1077,2.1285,2.1494,2.1703,2.1912,2.212,2.2329,2.2538,2.2746,2.2955,2.3164,2.3372,2.3581,2.379,2.3998,2.4207,2.4416,2.4624,2.4833],"F_rear":[1079.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,731.1,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,606.8,485.6,485.6,846.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,485.6,485.6,1672.6,1672.6,1237.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,485.6,1672.6,1672.6,868.9,598.4,499.8,549.2,775.0,1210.2,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6,1672.6],"trac_margin":[479.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,148.1,148.1,1072.6,1072.6,223.0,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,1072.6,1072.6,185.1,148.1,148.1,258.2,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,148.1,148.1,1072.6,1072.6,637.6,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,148.1,1072.6,1072.6,268.9,182.5,152.4,167.5,236.3,610.2,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6,1072.6]},"Anti-squat +15%":{"color":"#7c3aed","t":[0.0,0.0209,0.0417,0.0626,0.0835,0.1043,0.1252,0.1461,0.1669,0.1878,0.2087,0.2295,0.2504,0.2713,0.2922,0.313,0.3339,0.3548,0.3756,0.3965,0.4174,0.4382,0.4591,0.48,0.5008,0.5217,0.5426,0.5634,0.5843,0.6052,0.626,0.6469,0.6678,0.6886,0.7095,0.7304,0.7513,0.7721,0.793,0.8139,0.8347,0.8556,0.8765,0.8973,0.9182,0.9391,0.9599,0.9808,1.0017,1.0225,1.0434,1.0643,1.0851,1.106,1.1269,1.1477,1.1686,1.1895,1.2104,1.2312,1.2521,1.273,1.2938,1.3147,1.3356,1.3564,1.3773,1.3982,1.419,1.4399,1.4608,1.4816,1.5025,1.5234,1.5442,1.5651,1.586,1.6068,1.6277,1.6486,1.6694,1.6903,1.7112,1.7321,1.7529,1.7738,1.7947,1.8155,1.8364,1.8573,1.8781,1.899,1.9199,1.9407,1.9616,1.9825,2.0033,2.0242,2.0451,2.0659,2.0868,2.1077,2.1285,2.1494,2.1703,2.1912,2.212,2.2329,2.2538,2.2746,2.2955,2.3164,2.3372,2.3581,2.379,2.3998,2.4207,2.4416,2.4624,2.4833],"F_rear":[1241.0,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,647.5,647.5,696.0,1834.5,1834.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,1834.5,1834.5,1264.1,647.5,647.5,775.9,1657.3,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,647.5,647.5,1834.5,1834.5,1115.6,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,647.5,1834.5,1834.5,967.3,699.7,657.5,799.1,1142.9,1708.1,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5,1834.5],"trac_margin":[641.0,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,47.5,47.5,96.0,1234.5,1234.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,1234.5,1234.5,664.1,47.5,47.5,175.9,1057.3,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,47.5,47.5,1234.5,1234.5,515.6,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,47.5,1234.5,1234.5,367.3,99.7,57.5,199.1,542.9,1108.1,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5,1234.5]}},"summary":{"Baseline":{"min_F_rear":485.6,"max_h":2.787,"spin_time":1.312,"max_deficit":593.5,"color":"#2563eb"},"Slower pick-up":{"min_F_rear":485.6,"max_h":2.776,"spin_time":1.317,"max_deficit":593.5,"color":"#16a34a"},"Lower CoM":{"min_F_rear":485.6,"max_h":3.672,"spin_time":1.45,"max_deficit":593.5,"color":"#ea580c"},"Traction Control":{"min_F_rear":485.6,"max_h":2.787,"spin_time":0.0,"max_deficit":593.5,"color":"#dc2626"},"Anti-squat +15%":{"min_F_rear":647.5,"max_h":2.427,"spin_time":0.0,"max_deficit":431.6,"color":"#7c3aed"}},"F_static":1079.1,"throttle_N":600};
+
+const F_ST = SIM.F_static;
+const LABELS = Object.keys(SIM.series);
+
+// ── CHART DEFAULTS ──
+Chart.defaults.color = '#6b7385';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+
+const baselineT    = SIM.series['Baseline'].t;
+const baselinePitch = SIM.series['Baseline'].pitch;
+const baselineFr   = SIM.series['Baseline'].F_rear;
+
+// ── SMOOTH helper (5pt moving average) ──
+function smooth(arr, w=3){
+  const out=[];
+  for(let i=0;i<arr.length;i++){
+    let s=0,c=0;
+    for(let j=Math.max(0,i-w);j<=Math.min(arr.length-1,i+w);j++){s+=arr[j];c++;}
+    out.push(s/c);
+  }
+  return out;
+}
+
+// ── CHART 1: Pitch + F_rear dual axis ──
+(function(){
+  const ctx = document.getElementById('chartPitchLoad').getContext('2d');
+  const frSmooth = smooth(baselineFr);
+  const pitchSmooth = smooth(baselinePitch);
+  new Chart(ctx,{
+    type:'line',
+    data:{
+      labels: baselineT,
+      datasets:[
+        {
+          label:'Rear Load F_z [N]',
+          data: frSmooth,
+          borderColor:'#f0a500',
+          backgroundColor:'rgba(240,165,0,0.07)',
+          fill:true,
+          tension:0.35,
+          borderWidth:2,
+          pointRadius:0,
+          yAxisID:'yFr',
+        },
+        {
+          label:'Mozzi Pitch h [m/rad]',
+          data: pitchSmooth,
+          borderColor:'#e05252',
+          borderWidth:2,
+          tension:0.35,
+          pointRadius:0,
+          yAxisID:'yPitch',
+          borderDash:[4,3],
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        annotation:{}
+      },
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Time after apex [s]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385',maxTicksLimit:6}},
+        yFr:{position:'left',title:{display:true,text:'F_z rear [N]',color:'#f0a500'},
+             grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#f0a500'}},
+        yPitch:{position:'right',title:{display:true,text:'Mozzi pitch h [m/rad]',color:'#e05252'},
+                grid:{display:false},ticks:{color:'#e05252'}}
+      }
+    }
+  });
+})();
+
+// ── CHART 2: Traction budget baseline ──
+(function(){
+  const ctx = document.getElementById('chartTraction').getContext('2d');
+  const avail = smooth(SIM.series['Baseline'].Fx_avail);
+  const demand = SIM.series['Baseline'].Fx_demand;
+  // Spin zone fill: avail - demand when negative
+  const spinFill = avail.map((a,i)=>Math.min(a,demand[i]));
+
+  new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:baselineT,
+      datasets:[
+        {label:'Grip available (F_x max)',data:avail,
+         borderColor:'#4ade80',borderWidth:2.5,tension:0.3,pointRadius:0,fill:false},
+        {label:'Throttle demand',data:demand.map(()=>600),
+         borderColor:'#aaa',borderWidth:1.5,borderDash:[5,4],tension:0,pointRadius:0,fill:false},
+        {label:'Spin zone',data:spinFill,
+         borderColor:'transparent',
+         backgroundColor:'rgba(220,38,38,0.25)',
+         fill:{target:{value:600},above:'rgba(220,38,38,0.0)',below:'rgba(220,38,38,0.25)'},
+         tension:0.3,pointRadius:0,borderWidth:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Time after apex [s]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385',maxTicksLimit:6}},
+        y:{title:{display:true,text:'Longitudinal Force [N]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385'}}
+      }
+    }
+  });
+})();
+
+// ── CHART 3: F_rear all strategies ──
+(function(){
+  const ctx = document.getElementById('chartFrear').getContext('2d');
+  const datasets = LABELS.map(label=>{
+    const s = SIM.series[label];
+    return {
+      label, data:smooth(s.F_rear),
+      borderColor:s.color, borderWidth:2, tension:0.3,
+      pointRadius:0, fill:false
+    };
+  });
+  // Static reference
+  datasets.push({
+    label:'Static load',
+    data:baselineT.map(()=>F_ST),
+    borderColor:'#555e72', borderWidth:1, borderDash:[4,3],
+    pointRadius:0,fill:false
+  });
+  new Chart(ctx,{
+    type:'line',
+    data:{labels:baselineT, datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Time [s]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385',maxTicksLimit:5}},
+        y:{title:{display:true,text:'F_z rear [N]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385'}}
+      }
+    }
+  });
+  // legend
+  const leg = document.getElementById('legendFrear');
+  LABELS.forEach(l=>{
+    const s=SIM.series[l];
+    leg.innerHTML+=`<div class="legend-item"><div class="legend-line" style="background:${s.color}"></div>${l}</div>`;
+  });
+  leg.innerHTML+=`<div class="legend-item"><div class="legend-line" style="background:#555e72;border-top:1px dashed #555e72;height:0"></div>Static</div>`;
+})();
+
+// ── CHART 4: Traction margin all ──
+(function(){
+  const ctx = document.getElementById('chartTractionAll').getContext('2d');
+  const datasets = LABELS.map(label=>{
+    const s = SIM.series[label];
+    return {
+      label, data:smooth(s.trac_margin,2),
+      borderColor:s.color, borderWidth:2,
+      tension:0.3, pointRadius:0, fill:false
+    };
+  });
+  // Zero line
+  datasets.push({label:'Zero',data:baselineT.map(()=>0),
+    borderColor:'rgba(255,255,255,0.2)',borderWidth:1,pointRadius:0,fill:false});
+  new Chart(ctx,{
+    type:'line',
+    data:{labels:baselineT, datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Time [s]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385',maxTicksLimit:5}},
+        y:{title:{display:true,text:'Traction margin [N]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385'}}
+      }
+    }
+  });
+  const leg = document.getElementById('legendTraction');
+  LABELS.forEach(l=>{
+    const s=SIM.series[l];
+    leg.innerHTML+=`<div class="legend-item"><div class="legend-line" style="background:${s.color}"></div>${l}</div>`;
+  });
+})();
+
+// ── SCORECARD TABLE ──
+(function(){
+  const tbl = document.getElementById('scorecard');
+  const maxSpinTime = Math.max(...Object.values(SIM.summary).map(s=>s.spin_time));
+  const maxDeficit  = Math.max(...Object.values(SIM.summary).map(s=>s.max_deficit));
+
+  tbl.innerHTML = `<thead><tr>
+    <th>Strategy</th>
+    <th>Min Rear Load</th>
+    <th>Spin Duration</th>
+    <th>Spin Duration (bar)</th>
+    <th>Max Deficit</th>
+    <th>Peak |h|</th>
+    <th>Verdict</th>
+  </tr></thead><tbody></tbody>`;
+  const tbody = tbl.querySelector('tbody');
+
+  Object.entries(SIM.summary).forEach(([label, s])=>{
+    const isGood = s.spin_time===0;
+    const spinPct = (s.spin_time/maxSpinTime*100).toFixed(0);
+    const defPct  = (s.max_deficit/maxDeficit*100).toFixed(0);
+    tbody.innerHTML += `<tr>
+      <td><div class="strat-name"><div class="strat-dot" style="background:${s.color}"></div>${label}</div></td>
+      <td><span class="${isGood?'number-good':'number-bad'}">${s.min_F_rear.toFixed(0)} N</span></td>
+      <td><span class="${s.spin_time===0?'number-good':'number-bad'}">${s.spin_time===0?'✓ None':s.spin_time.toFixed(2)+' s'}</span></td>
+      <td class="bar-cell">
+        <div class="bar-bg"><div class="bar-fill" style="width:${spinPct}%;background:${s.spin_time===0?'#4ade80':'#f87171'}"></div></div>
+      </td>
+      <td><span class="${s.max_deficit<500?'number-good':'number-bad'}">${s.max_deficit.toFixed(0)} N</span></td>
+      <td><span class="number-neu" style="font-family:'DM Mono'">${s.max_h.toFixed(3)}</span></td>
+      <td><span class="pill ${s.spin_time===0?'pill-green':'pill-red'}">${s.spin_time===0?'No spin':'Spinning'}</span></td>
+    </tr>`;
+  });
+})();
+
+// ── CHART 5: Phase portrait ──
+(function(){
+  const ctx = document.getElementById('chartPhase').getContext('2d');
+  const datasets = LABELS.map(label=>{
+    const s = SIM.series[label];
+    const pts = s.pitch.map((h,i)=>({x:h, y:s.F_rear[i]-F_ST}));
+    return {
+      label, data:pts,
+      borderColor:s.color,
+      backgroundColor:s.color,
+      borderWidth:2, pointRadius:0,
+      showLine:true, tension:0.2, fill:false
+    };
+  });
+  // Start markers
+  LABELS.forEach(label=>{
+    const s=SIM.series[label];
+    datasets.push({
+      label:`${label} (start)`,
+      data:[{x:s.pitch[0],y:s.F_rear[0]-F_ST}],
+      borderColor:s.color,backgroundColor:s.color,
+      pointRadius:6,pointStyle:'circle',showLine:false
+    });
+  });
+  new Chart(ctx,{
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        annotation:{
+          annotations:{
+            zoneLabel:{
+              type:'label',x:1.5,y:-200,
+              content:['⚠ SPIN RISK ZONE','High pitch + low rear load'],
+              color:'rgba(220,38,38,0.6)',
+              font:{size:11}
+            }
+          }
+        }
+      },
+      scales:{
+        x:{title:{display:true,text:'Mozzi screw pitch h [m/rad]',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385'},
+           min:-2,max:3},
+        y:{title:{display:true,text:'Rear load deviation ΔF_z [N]  (negative = deficit)',color:'#6b7385'},
+           grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7385'}}
+      }
+    }
+  });
+  const leg = document.getElementById('legendPhase');
+  LABELS.forEach(l=>{
+    const s=SIM.series[l];
+    leg.innerHTML+=`<div class="legend-item"><div class="legend-dot" style="background:${s.color}"></div>${l}</div>`;
+  });
+  leg.innerHTML+=`<div class="legend-item" style="font-style:italic; font-size:0.68rem">● = apex (start)</div>`;
+})();
+</script>
+</body>
+</html>
