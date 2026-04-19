@@ -268,9 +268,7 @@ for t0, t1, col, label in phases:
                  ha='center', va='top', fontsize=8, color='#444',
                  multialignment='center')
 
-plt.savefig('/mnt/user-data/outputs/chicane_simulation.png',
-            dpi=150, bbox_inches='tight')
-print("Saved → /mnt/user-data/outputs/chicane_simulation.png")
+
 
 # ── Console summary ───────────────────────────────────────────────
 print(f"\n── Peak values ──────────────────────────────────────────")

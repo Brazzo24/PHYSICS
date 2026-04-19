@@ -341,10 +341,7 @@ ax7.set_ylabel("Force [N]"); ax7.set_xlabel("Time [s]")
 ax7.set_title("Pacejka Lateral Forces")
 ax7.legend(fontsize=8); ax7.grid(True, alpha=0.3)
 
-plt.savefig("/mnt/user-data/outputs/chicane_mozzi_dashboard.png",
-            dpi=150, bbox_inches='tight')
-plt.close()
-print("Dashboard saved.")
+plt.show()
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -413,10 +410,7 @@ for idx, (si, label) in enumerate(snapshots):
     axi.view_init(elev=20, azim=-60)
 
 plt.tight_layout()
-plt.savefig("/mnt/user-data/outputs/chicane_mozzi_3d_snapshots.png",
-            dpi=150, bbox_inches='tight')
-plt.close()
-print("3D snapshots saved.")
+plt.show()
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -448,9 +442,8 @@ for axi, (Fz_arr, Fy_arr, label) in zip(
     axi.legend(fontsize=8)
 
 plt.tight_layout()
-plt.savefig("/mnt/user-data/outputs/chicane_mozzi_friction_ellipse.png",
-            dpi=150, bbox_inches='tight')
-plt.close()
+plt.show()
+
+# plt.close()
 print("Friction ellipse plot saved.")
 
-print("\n✓ All outputs written to /mnt/user-data/outputs/")
