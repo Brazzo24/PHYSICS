@@ -1,0 +1,387 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                MOTORCYCLE ROLL DYNAMICS SOLVER                            ║
+║                         Complete Package Index                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📦 COMPLETE FILE LIST (7 files, ~80 KB total)
+==============================================
+
+1. START_HERE.txt (9.8 KB)
+   └─ 🎯 BEGIN HERE! Friendly orientation guide
+   └─ What you have, quick start, path selection
+   └─ 2-minute quick wins, FAQ
+
+2. motorcycle_dynamics_solver.py (13 KB)
+   └─ ⚙️  THE MAIN MODULE
+   └─ MotorcycleDynamicsModel class with all 6 equations
+   └─ Runs directly: python motorcycle_dynamics_solver.py
+   └─ Also: import and use as a library
+
+3. README.md (11 KB)
+   └─ 📚 OVERVIEW & REFERENCE
+   └─ Package contents, quick start, symbol reference
+   └─ Typical workflow, extending the solver
+
+4. USAGE_GUIDE.md (11 KB)
+   └─ 📖 COMPLETE DOCUMENTATION
+   └─ Feature list, each equation explained
+   └─ 5 detailed examples with code
+   └─ Troubleshooting guide
+
+5. INTERACTIVE_EXAMPLES.py (12 KB)
+   └─ 💻 7 WORKING EXAMPLES (copy-paste ready)
+   └─ Example 1: Roll angle from lateral acceleration
+   └─ Example 2: Tire load transfer analysis  
+   └─ Example 3: Load transfer varying with lateral accel
+   └─ Example 4: Longitudinal force distribution (braking)
+   └─ Example 5: Combined acceleration + lateral acceleration
+   └─ Example 6: Create custom friction constraint
+   └─ Example 7: Symbolic manipulation
+
+6. ADVANCED_PATTERNS.py (15 KB)
+   └─ 🚀 6 ADVANCED TECHNIQUES
+   └─ Pattern 1: Lambdify for fast evaluation (100-1000× faster!)
+   └─ Pattern 2: Solve nonlinear systems with constraints
+   └─ Pattern 3: Optimization with friction ellipse limits
+   └─ Pattern 4: Time integration / simulation loop
+   └─ Pattern 5: Sensitivity analysis (how parameters affect results)
+   └─ Pattern 6: Export to C, MATLAB, LaTeX code
+
+7. QUICK_REFERENCE.txt (9.1 KB)
+   └─ ⚡ CHEAT SHEET & SYMBOL MAPPING
+   └─ One-page equation summary
+   └─ All accessible symbols
+   └─ Common tasks with code snippets
+   └─ Performance tips
+   └─ Error fixes
+
+8. This file (INDEX.txt)
+   └─ 📋 DIRECTORY & NAVIGATION
+
+
+🎯 GETTING STARTED PATHS
+========================
+
+Path 1: FASTEST (5 minutes)
+──────────────────────────
+1. Read: START_HERE.txt (2 min)
+2. Run:  python motorcycle_dynamics_solver.py (1 min)
+3. Copy: First example from INTERACTIVE_EXAMPLES.py (2 min)
+
+Path 2: THOROUGH (1 hour)
+─────────────────────────
+1. Read:  START_HERE.txt
+2. Read:  README.md
+3. Run:   python motorcycle_dynamics_solver.py
+4. Try:   INTERACTIVE_EXAMPLES.py Examples 1-3
+5. Scan:  USAGE_GUIDE.md key sections
+
+Path 3: COMPLETE (2-3 hours)
+────────────────────────────
+1. Read all documentation files
+2. Run all examples
+3. Try ADVANCED_PATTERNS.py
+4. Modify and experiment
+
+Path 4: INTEGRATION (ongoing)
+─────────────────────────────
+Use in your chicane/Mozzi-axis simulation:
+→ Import MotorcycleDynamicsModel
+→ Extend with custom methods
+→ Export equations to your platform
+
+
+📚 WHAT EACH FILE TEACHES YOU
+=============================
+
+motorcycle_dynamics_solver.py
+├─ How to structure a SymPy-based dynamics model
+├─ How to implement multiple related equations
+├─ How to make equations accessible and usable
+└─ How to organize symbolic computation code
+
+README.md
+├─ How to navigate a complex package
+├─ Symbol naming conventions
+├─ Typical workflows and use cases
+└─ How to extend the solver
+
+USAGE_GUIDE.md
+├─ Complete theory behind motorcycle roll dynamics
+├─ Each equation explained with context
+├─ Detailed worked examples with all steps
+├─ How to work with SymPy expressions
+└─ Troubleshooting common issues
+
+INTERACTIVE_EXAMPLES.py
+├─ Real working code for 7 scenarios
+├─ How to substitute values and evaluate
+├─ How to visualize results with matplotlib
+├─ Increasingly complex use cases
+└─ How to think about problem setup
+
+ADVANCED_PATTERNS.py
+├─ How to optimize SymPy for speed
+├─ How to solve constrained systems
+├─ How to use scipy.optimize with SymPy
+├─ How to run simulations
+├─ How to do sensitivity analysis
+└─ How to export to other languages
+
+QUICK_REFERENCE.txt
+├─ Quick lookup for symbols and functions
+├─ Copy-paste code snippets for common tasks
+├─ Performance optimization tips
+└─ Error diagnosis and fixes
+
+
+🔗 EQUATION MAPPING
+===================
+
+All 6 equations from your paper are implemented:
+
+Equation 1: Six Newton-Euler equations
+→ Access: model.eq_group_1_newton_euler()
+→ Returns: List of 6 symbolic equations
+→ Example: INTERACTIVE_EXAMPLES.py (any, uses these indirectly)
+
+Equation 2: Tire force distribution parameter α
+→ Access: model.eq_2_tire_force_distribution()
+→ Returns: (alpha_definition, constraint_equation)
+→ Example: INTERACTIVE_EXAMPLES.py Example 4
+
+Equation 3: Roll angle kinematics  
+→ Access: model.eq_3_roll_angle_kinematics()
+→ Returns: φ = arctan(a_y/g)
+→ Example: INTERACTIVE_EXAMPLES.py Example 1 (primary focus)
+
+Equation 4: Tire vertical load transfer
+→ Access: model.eq_4_tire_vertical_loads()
+→ Returns: (N_r, N_f) with all effects included
+→ Example: INTERACTIVE_EXAMPLES.py Example 2
+
+Equation 5: Non-dimensional lateral forces
+→ Access: model.eq_5_non_dimensional_lateral_forces()
+→ Returns: (F_r, F_f)
+→ Example: INTERACTIVE_EXAMPLES.py Example 5
+
+Equation 6: Non-dimensional longitudinal forces
+→ Access: model.eq_6_non_dimensional_longitudinal_forces()
+→ Returns: (S_r, S_f)
+→ Example: INTERACTIVE_EXAMPLES.py Example 4
+
+
+💡 KEY CONCEPTS TO UNDERSTAND
+=============================
+
+1. SymPy Basics
+   → Symbols (model.a_y, model.phi, etc.)
+   → Expressions (combinations of symbols)
+   → Equations (expressions = 0)
+   → Find in: USAGE_GUIDE.md
+
+2. Numerical Evaluation
+   → .subs([...]) replaces symbols with values
+   → .evalf() evaluates numerically
+   → Example: INTERACTIVE_EXAMPLES.py Example 1
+
+3. Roll Dynamics
+   → Simple: φ = arctan(a_y/g)
+   → Complex: Load transfer nonlinear
+   → Key insight: Height/CoM position matters!
+   → Find in: USAGE_GUIDE.md "Key Insights"
+
+4. Tire Constraints
+   → Forces limited by friction: √(F²+S²) ≤ μ·N
+   → Affects max cornering speed and acceleration
+   → Find in: ADVANCED_PATTERNS.py Pattern 3
+
+5. Performance
+   → Use lambdify() for >10 evaluations
+   → Symbolic solving is exact but slow
+   → Numerical solving is approximate but fast
+   → Find in: ADVANCED_PATTERNS.py Pattern 1
+
+
+🎓 LEARNING PROGRESSION
+=======================
+
+Beginner Level (0-30 min):
+✓ Read START_HERE.txt
+✓ Run motorcycle_dynamics_solver.py
+✓ Understand Eq. 3 (roll kinematics)
+
+Intermediate Level (30 min - 2 hours):
+✓ Try INTERACTIVE_EXAMPLES.py Examples 1-3
+✓ Read USAGE_GUIDE.md
+✓ Understand load transfer (Eq. 4)
+
+Advanced Level (2+ hours):
+✓ Try INTERACTIVE_EXAMPLES.py Examples 4-7
+✓ Study ADVANCED_PATTERNS.py
+✓ Understand tire constraints and friction
+✓ Start extending with custom equations
+
+Expert Level (ongoing):
+✓ Integrate into chicane simulation
+✓ Export to Arduino/embedded C
+✓ Validate against experimental data
+✓ Add custom constraints/models
+
+
+⚡ MOST USEFUL CODE SNIPPETS (by use case)
+===========================================
+
+"I want to calculate roll angle"
+→ INTERACTIVE_EXAMPLES.py Example 1
+
+"I want tire loads"
+→ INTERACTIVE_EXAMPLES.py Example 2
+
+"I want fast numerical evaluation"
+→ ADVANCED_PATTERNS.py Pattern 1
+
+"I want to find maximum cornering speed"
+→ ADVANCED_PATTERNS.py Pattern 3
+
+"I want to simulate over time"
+→ ADVANCED_PATTERNS.py Pattern 4
+
+"I want to see how parameters affect results"
+→ ADVANCED_PATTERNS.py Pattern 5
+
+"I want C code for my Arduino"
+→ ADVANCED_PATTERNS.py Pattern 6
+
+"I need quick answers"
+→ QUICK_REFERENCE.txt
+
+
+📊 STATISTICS
+=============
+
+Total lines of code:      ~2,200
+Documented examples:      14 (7 in examples, 6 in advanced + 1 in main)
+Equations implemented:    6 (+ constraints)
+Symbols defined:          15+
+Time to first result:     2 minutes
+Time to understand thoroughly: 1-2 hours
+Time to integrate fully:   1-2 days
+
+
+✅ WHAT'S INCLUDED
+==================
+
+Core Features:
+✓ All 6 Newton-Euler equations
+✓ Tire load transfer with roll coupling
+✓ Friction-limited tire forces
+✓ Non-dimensional parametrization
+✓ Symbolic and numerical solving
+
+Code Examples:
+✓ 7 complete working examples
+✓ 6 advanced patterns/techniques
+✓ 15+ code snippets
+
+Documentation:
+✓ 5 markdown/text guides
+✓ 60+ pages of reference material
+✓ Theory explanations
+✓ Troubleshooting guides
+
+Development Support:
+✓ Class-based extensible design
+✓ Well-organized method structure
+✓ Comprehensive docstrings
+✓ Export capabilities
+
+
+🚀 QUICK START COMMAND
+======================
+
+python motorcycle_dynamics_solver.py
+
+This will:
+1. Print all equations
+2. Run 2 examples automatically
+3. Show output for roll angle and tire loads
+
+
+📞 NAVIGATION GUIDE
+===================
+
+"I don't know where to start"
+→ Read: START_HERE.txt (takes 2 min)
+
+"I want to understand the theory"
+→ Read: USAGE_GUIDE.md (takes 30 min)
+
+"I want working code right now"
+→ Copy from: INTERACTIVE_EXAMPLES.py (takes 5 min)
+
+"I need a specific technique"
+→ Search: QUICK_REFERENCE.txt or ADVANCED_PATTERNS.py
+
+"I want to extend/modify"
+→ Read: README.md "Extending the Solver" section
+
+"Something isn't working"
+→ Check: USAGE_GUIDE.md "Troubleshooting"
+
+"I need to understand a symbol"
+→ Find: README.md "Symbol Reference"
+
+"I want to export to another language"
+→ See: ADVANCED_PATTERNS.py Pattern 6
+
+
+✨ UNIQUE FEATURES
+==================
+
+1. Pure SymPy Implementation
+   → Symbolic exactness meets numerical efficiency
+   → Export to any language (C, MATLAB, etc.)
+
+2. Research-Grade Documentation
+   → Every equation explained with context
+   → Theory + practice balanced
+
+3. Example-Rich
+   → 14 complete working examples
+   → Progressive complexity
+
+4. Production-Ready Patterns
+   → Tested techniques for common problems
+   → Performance-optimized approaches
+
+5. Extensible Design
+   → Easy to add custom equations
+   → Class-based structure for inheritance
+
+
+🎯 SUCCESS CRITERIA
+===================
+
+After working through this package, you will:
+
+✅ Understand motorcycle roll dynamics equations
+✅ Know how to use SymPy for engineering problems
+✅ Be able to solve constraint optimization problems
+✅ Understand tire load transfer and friction limits
+✅ Have working simulation code
+✅ Be able to export to embedded systems
+✅ Have a foundation for your chicane/Arduino work
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+START HERE: Read START_HERE.txt or run motorcycle_dynamics_solver.py
+
+NEED HELP: Check the relevant guide (README, USAGE_GUIDE, QUICK_REFERENCE)
+
+WANT EXAMPLES: Open INTERACTIVE_EXAMPLES.py
+
+READY FOR ADVANCED: Explore ADVANCED_PATTERNS.py
+
+═══════════════════════════════════════════════════════════════════════════════
