@@ -404,6 +404,7 @@ def pattern_6_export_to_formats():
     
     print("\n2. C/C++ code generation:")
     print("-" * 55)
+    
     from sympy.printing.ccode import ccode
     
     phi_c = ccode(phi_eq.rhs)
