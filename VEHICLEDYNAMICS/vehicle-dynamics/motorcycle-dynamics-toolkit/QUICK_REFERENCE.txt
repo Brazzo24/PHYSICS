@@ -1,0 +1,315 @@
+# Motorcycle Roll Dynamics Solver – Quick Reference Card
+
+## 📋 File Overview
+
+```
+motorcycle_dynamics_solver/
+├── motorcycle_dynamics_solver.py    ← Main module (runs directly)
+├── README.md                         ← Overview & getting started
+├── USAGE_GUIDE.md                    ← Complete documentation with theory
+├── INTERACTIVE_EXAMPLES.py           ← 7 copy-paste examples
+├── ADVANCED_PATTERNS.py              ← 6 advanced techniques
+└── QUICK_REFERENCE.txt              ← This file
+```
+
+---
+
+## 🎯 What Each File Does
+
+| File | Purpose | Start Here? |
+|------|---------|-------------|
+| `motorcycle_dynamics_solver.py` | Core SymPy implementation | Yes (run with `python file.py`) |
+| `README.md` | Orientation & quick start | Yes (if you prefer reading first) |
+| `USAGE_GUIDE.md` | Complete guide + theory | Yes (for understanding) |
+| `INTERACTIVE_EXAMPLES.py` | 7 working examples | Yes (for hands-on learning) |
+| `ADVANCED_PATTERNS.py` | Optimization, integration, export | Later (when ready to extend) |
+
+---
+
+## 🚀 Minimal Working Example
+
+```python
+from motorcycle_dynamics_solver import MotorcycleDynamicsModel
+
+model = MotorcycleDynamicsModel()
+model.print_equations()
+```
+
+**Output:** All 6 Newton-Euler equations + Eqs. 2-6 from your paper.
+
+---
+
+## 📊 All 6 Equations at a Glance
+
+### Eq. 1 – Newton-Euler (6 equations)
+Longitudinal, lateral, vertical, and 3 rotational moment equations
+
+### Eq. 2 – Tire Force Distribution
+```
+α = S_r / (S_r + S_f)
+```
+Controls how braking/acceleration is split between rear and front
+
+### Eq. 3 – Roll Angle Kinematics
+```
+φ = arctan(a_y / g)
+```
+Roll angle determined directly by lateral acceleration
+
+### Eq. 4 – Vertical Load Transfer
+```
+N_r = (a' + h' cos φ) M g - (a' + h' a_y/√(1+a_y²)) M g
+N_f = (b' - h' cos φ) M g - (b' - h' a_y/√(1+a_y²)) M g
+```
+Load shifts between front/rear wheels with roll and inertia
+
+### Eq. 5 – Lateral Forces (simple)
+```
+F_r / N_r = F_f / N_f = a_y / g
+```
+
+### Eq. 6 – Longitudinal Forces (complex)
+Accounts for load transfer effects on braking/acceleration capacity
+
+---
+
+## 🔧 Most Common Tasks
+
+### Task 1: Get Roll Angle for Lateral Accel
+```python
+model = MotorcycleDynamicsModel()
+phi_eq = model.eq_3_roll_angle_kinematics()
+phi_solution = phi_eq.subs([(model.a_y, 5.0), (model.g, 9.81)])
+phi = float(phi_solution.rhs.evalf())
+print(f"Roll angle: {phi:.4f} rad = {np.degrees(phi):.1f}°")
+```
+
+### Task 2: Calculate Tire Loads
+```python
+N_r, N_f = model.eq_4_tire_vertical_loads()
+
+# Substitute your values
+subs = [(model.M, 200), (model.p, 1.4), (model.a_var, 0.6),
+        (model.h_bar, 0.357), (model.b_bar, 0.571), (model.g, 9.81),
+        (model.a_y, 5.0), (model.phi, 0.3)]
+
+N_r_val = float(N_r.subs(subs).evalf())
+N_f_val = float(N_f.subs(subs).evalf())
+```
+
+### Task 3: Solve for Unknown (e.g., a_y that gives N_f = 60% load)
+See **ADVANCED_PATTERNS.py – Pattern 2**
+
+### Task 4: Find Max Cornering Speed (friction limit)
+See **ADVANCED_PATTERNS.py – Pattern 3**
+
+### Task 5: Time Simulation
+See **ADVANCED_PATTERNS.py – Pattern 4** or **INTERACTIVE_EXAMPLES.py – Example 5**
+
+---
+
+## 📈 All Accessible Equations
+
+```python
+model.eq_group_1_newton_euler()          # 6 Newton-Euler equations
+model.eq_2_tire_force_distribution()    # α parameter
+model.eq_3_roll_angle_kinematics()      # φ = arctan(a_y/g)
+model.eq_4_tire_vertical_loads()        # N_r, N_f
+model.eq_5_non_dimensional_lateral_forces()   # F_r, F_f
+model.eq_6_non_dimensional_longitudinal_forces()  # S_r, S_f
+```
+
+---
+
+## 🧮 All Accessible Symbols
+
+**Geometry:**
+- `M` – mass
+- `p` – wheelbase
+- `a_var` – CoM distance from rear
+- `h` – CoM height
+- `g` – gravity
+
+**Dynamics:**
+- `phi` – roll angle
+- `a_x`, `a_y` – longitudinal, lateral acceleration
+
+**Tire Forces:**
+- `S_r`, `S_f` – longitudinal (rear, front)
+- `F_r`, `F_f` – lateral (rear, front)
+- `N_r`, `N_f` – normal (rear, front)
+
+**Non-dimensional:**
+- `h_bar` – h/p
+- `b_bar` – b'/p
+- `b_prime_bar` – (p-b)/p
+- `alpha` – force distribution parameter
+
+---
+
+## ⚡ Performance Cheat Sheet
+
+| Task | Time | Solution |
+|------|------|----------|
+| Print equations | <1 sec | `model.print_equations()` |
+| Single substitution | 0.1–1 sec | Use `.subs()` directly |
+| **Repeated evaluation** | **1–10 sec** | **Use `lambdify()`** |
+| Solve algebraically | 1–30 sec | Use `sp.solve()` |
+| Optimization | 1–10 sec | Use `scipy.optimize` with lambdified functions |
+
+**Golden Rule:** For >10 evaluations, use `lambdify()`!
+
+---
+
+## 📖 Learning Path
+
+**Hour 1 (Beginner):**
+1. Run `python motorcycle_dynamics_solver.py` → see all equations
+2. Read `README.md` → understand structure
+3. Copy Example 1 from `INTERACTIVE_EXAMPLES.py` → run in Python shell
+
+**Hour 2 (Intermediate):**
+1. Run Examples 2, 4, 5 from `INTERACTIVE_EXAMPLES.py`
+2. Try modifying parameter values
+3. Read relevant sections of `USAGE_GUIDE.md`
+
+**Hour 3+ (Advanced):**
+1. Try `ADVANCED_PATTERNS.py` Pattern 1 (lambdify for speed)
+2. Try Pattern 2 (solving constrained system)
+3. Try Pattern 4 (time integration / simulation)
+4. Build your own simulation!
+
+---
+
+## 🎓 Key Concepts
+
+**Roll Angle:** Determined purely by lateral acceleration  
+**Load Transfer:** Nonlinear due to sqrt(1+a_y²) term  
+**Tire Forces:** Limited by friction ellipse (Pacejka model)  
+**Feedforward:** S/N ratio depends on CoM position relative to wheel axes  
+
+---
+
+## 💡 Pro Tips
+
+### Tip 1: Use LaTeX output for papers
+```python
+import sympy as sp
+phi = model.eq_3_roll_angle_kinematics()
+print(sp.latex(phi))  # → LaTeX code for equation
+```
+
+### Tip 2: Simplify complex expressions
+```python
+expr_simple = sp.simplify(complicated_expr)
+expr_trig = sp.trigsimp(complicated_expr)
+```
+
+### Tip 3: Fast evaluation with lambdify
+```python
+from sympy.utilities.lambdify import lambdify
+N_r_func = lambdify((model.M, model.p, model.a_var, ...), N_r, 'numpy')
+# Now: N_r_func(M, p, a, ...) is 100–1000× faster than .subs()
+```
+
+### Tip 4: Numerical solving
+```python
+from scipy.optimize import fsolve
+solution = fsolve(residual_function, x0=initial_guess)
+```
+
+### Tip 5: Export to C code
+```python
+from sympy.printing.ccode import ccode
+print(ccode(phi_expr))  # → C code for your embedded system
+```
+
+---
+
+## 🔗 Symbol Name Mapping
+
+| Symbol in Equation | SymPy Name | Alternative |
+|-------------------|-----------|-------------|
+| a | `model.a_var` | CoM rear distance |
+| b | (implicit) | = p - a |
+| h' | `model.h_bar` | non-dimensional height |
+| b' | `model.b_bar` | non-dimensional front distance |
+| φ | `model.phi` | roll angle |
+| α | `model.alpha` | force distribution |
+
+---
+
+## 🛠️ Integration Checklist
+
+- [ ] Install SymPy: `pip install sympy numpy scipy`
+- [ ] Copy `motorcycle_dynamics_solver.py` to your project
+- [ ] Import: `from motorcycle_dynamics_solver import MotorcycleDynamicsModel`
+- [ ] Create model: `model = MotorcycleDynamicsModel()`
+- [ ] Access equations: `model.eq_3_roll_angle_kinematics()`
+- [ ] Substitute values: `.subs([(symbol, value), ...])`
+- [ ] Evaluate: `.evalf()`
+- [ ] For speed: use `lambdify()` if evaluating >10 times
+
+---
+
+## 🐛 Common Errors & Fixes
+
+### Error: "cannot import"
+**Fix:** Make sure `motorcycle_dynamics_solver.py` is in same directory or Python path
+
+### Error: "float object has no attribute 'subs'"
+**Fix:** Don't forget `.evalf()` at the end; use `.subs()` on the SymPy expression, not the float
+
+### Error: "takes 2 positional arguments but 3 were given"
+**Fix:** In lambdify, pass symbols as tuple: `(a, b, c)` not `a, b, c`
+
+### Performance: Very slow
+**Fix:** You're probably using `.subs()` in a loop. Use `lambdify()` instead!
+
+---
+
+## 📊 Equation Complexity Reference
+
+| Equation | Complexity | Why |
+|----------|-----------|-----|
+| Eq. 3 (roll kinematics) | ⭐☆☆☆☆ | Single arctan |
+| Eq. 5 (lateral forces) | ⭐☆☆☆☆ | Simple proportionality |
+| Eq. 2 (force distribution) | ⭐⭐☆☆☆ | Ratio |
+| Eq. 1 (Newton-Euler) | ⭐⭐⭐☆☆ | 6 equations, mass+inertia |
+| Eq. 4 (load transfer) | ⭐⭐⭐⭐☆ | Nonlinear with roll coupling |
+| Eq. 6 (longitudinal forces) | ⭐⭐⭐⭐⭐ | Complex load transfer dependency |
+
+---
+
+## 🎯 Next Steps
+
+1. **Immediate:** Run `python motorcycle_dynamics_solver.py`
+2. **Quick:** Try Example 1 from `INTERACTIVE_EXAMPLES.py`
+3. **Deep dive:** Read `USAGE_GUIDE.md` section "Key Insights"
+4. **Extend:** Add your own equations to the model class
+5. **Integrate:** Use in your chicane/Mozzi-axis simulations
+
+---
+
+## 📞 Quick Help
+
+**Q: Where do I start?**  
+A: Read `README.md`, then run `python motorcycle_dynamics_solver.py`
+
+**Q: How do I solve for something?**  
+A: Use `sp.solve(equation, unknown)` or `scipy.optimize.fsolve()`
+
+**Q: My code is slow!**  
+A: Use `lambdify()` for repeated evaluation
+
+**Q: How do I use this in my Arduino code?**  
+A: Export with `sympy.printing.ccode.ccode()`
+
+**Q: Can I add constraints?**  
+A: Yes! See `ADVANCED_PATTERNS.py` Pattern 2-3
+
+---
+
+**Made for your motorcycle dynamics research! 🏍️**
+
+Questions? Check `USAGE_GUIDE.md` or `ADVANCED_PATTERNS.py` for your specific use case.

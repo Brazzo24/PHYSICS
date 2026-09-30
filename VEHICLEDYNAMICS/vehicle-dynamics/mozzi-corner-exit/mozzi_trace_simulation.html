@@ -1,0 +1,319 @@
+
+<style>
+  .ctrl-row { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--color-text-secondary); margin-bottom:8px; }
+  .ctrl-row label { min-width:110px; }
+  .ctrl-row input[type=range] { flex:1; }
+  .ctrl-row .val { min-width:56px; text-align:right; font-variant-numeric:tabular-nums; color:var(--color-text-primary); }
+  .btn-row { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+  .stat { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:8px 12px; }
+  .stat .lbl { font-size:11px; color:var(--color-text-secondary); }
+  .stat .num { font-size:17px; font-weight:500; color:var(--color-text-primary); }
+  .legend { display:flex; gap:16px; font-size:12px; color:var(--color-text-secondary); margin-bottom:6px; flex-wrap:wrap; }
+  .leg-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; }
+</style>
+<h2 class="sr-only">Mozzi trace animation for slalom and turn-entry maneuvers</h2>
+
+<div class="btn-row">
+  <button id="btn-slalom" onclick="setMode('slalom')">Slalom</button>
+  <button id="btn-turn" onclick="setMode('turn')">Kurveneinlenken (Gegenlenkung)</button>
+  <button id="btn-play" onclick="togglePlay()">Pause</button>
+  <button onclick="reset()">Neustart</button>
+</div>
+
+<div class="ctrl-row">
+  <label>Geschwindigkeit V (m/s)</label>
+  <input type="range" id="vel" min="5" max="35" value="15" step="0.5" oninput="onParam()">
+  <span class="val" id="vel-v">15.0 m/s</span>
+</div>
+<div class="ctrl-row">
+  <label>Slalom-Frequenz (Hz)</label>
+  <input type="range" id="freq" min="0.2" max="1.2" value="0.5" step="0.05" oninput="onParam()">
+  <span class="val" id="freq-v">0.50 Hz</span>
+</div>
+<div class="ctrl-row">
+  <label>Max. Rollrate (°/s)</label>
+  <input type="range" id="rollmax" min="10" max="60" value="30" step="1" oninput="onParam()">
+  <span class="val" id="rollmax-v">30°/s</span>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="lbl">t</div><div class="num" id="s-t">0.00 s</div></div>
+  <div class="stat"><div class="lbl">Rollrate φ̇</div><div class="num" id="s-roll">0.0°/s</div></div>
+  <div class="stat"><div class="lbl">Gierrate ψ̇</div><div class="num" id="s-yaw">0.0°/s</div></div>
+  <div class="stat"><div class="lbl">Neigungswinkel Φ</div><div class="num" id="s-phi">0.0°</div></div>
+</div>
+
+<div class="legend">
+  <span><span class="leg-dot" style="background:#378ADD"></span>Fahrweg des Schwerpunkts</span>
+  <span><span class="leg-dot" style="background:#EF9F27"></span>Mozzi-Trace</span>
+  <span><span class="leg-dot" style="background:#1D9E75"></span>Drehzentrum (Kurvenradius)</span>
+  <span><span class="leg-dot" style="background:#D85A30"></span>Motorrad (aktuell)</span>
+</div>
+
+<canvas id="c" width="680" height="400" style="width:100%;border-radius:var(--border-radius-md);background:var(--color-background-secondary);" role="img" aria-label="Animated Mozzi trace simulation showing motorcycle path, Mozzi trace, and turn centre locus"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const isDark = () => matchMedia('(prefers-color-scheme:dark)').matches;
+const COL = {
+  path:    '#378ADD',
+  mozzi:   '#EF9F27',
+  turn:    '#1D9E75',
+  moto:    '#D85A30',
+  grid:    () => isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+  axis:    () => isDark() ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)',
+  text:    () => isDark() ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)',
+  bg:      () => isDark() ? '#1e1e1e' : '#f4f2ed',
+};
+
+let mode = 'slalom';
+let playing = true;
+let raf = null;
+let t = 0;
+let dt = 1/60;
+
+let pathPts = [];
+let mozziPts = [];
+let turnPts = [];
+const MAX_TRAIL = 600;
+
+function getParams() {
+  return {
+    V:       parseFloat(document.getElementById('vel').value),
+    f:       parseFloat(document.getElementById('freq').value),
+    rollMax: parseFloat(document.getElementById('rollmax').value) * Math.PI/180,
+  };
+}
+
+function slalomRates(t, p) {
+  const omega = 2*Math.PI*p.f;
+  const phiDot = p.rollMax * omega * Math.cos(omega*t);
+  const phi    = p.rollMax * Math.sin(omega*t);
+  const psiDot = (p.V * Math.tan(phi)) / 1.4;
+  return { phiDot, psiDot, phi };
+}
+
+function turnRates(t, p) {
+  const rampTime = 0.8;
+  const holdTime = 1.2;
+  const phaseLen = rampTime + holdTime;
+  const cycle = t % (2*phaseLen);
+  let phiDot, psiDot, phi;
+
+  if (cycle < rampTime) {
+    const s = cycle / rampTime;
+    phiDot = p.rollMax * 2 * Math.PI * 0.5 * Math.cos(Math.PI*s);
+    phi    = p.rollMax * Math.sin(Math.PI*s);
+    psiDot = -0.3 * p.rollMax * (1-s);
+  } else if (cycle < phaseLen) {
+    phi    = p.rollMax * Math.sin(Math.PI);
+    phiDot = 0;
+    psiDot = p.V * Math.tan(p.rollMax * 0.7) / 1.4;
+  } else if (cycle < phaseLen + rampTime) {
+    const s = (cycle - phaseLen) / rampTime;
+    phiDot = -p.rollMax * 2 * Math.PI * 0.5 * Math.cos(Math.PI*s);
+    phi    = -p.rollMax * Math.sin(Math.PI*s);
+    psiDot = 0.3 * p.rollMax * (1-s);
+  } else {
+    phi    = -p.rollMax * Math.sin(Math.PI);
+    phiDot = 0;
+    psiDot = p.V * Math.tan(-p.rollMax * 0.7) / 1.4;
+  }
+  return { phiDot, psiDot, phi };
+}
+
+let motoX = 340, motoY = 200, heading = -Math.PI/2;
+
+function step() {
+  const p = getParams();
+  const rates = mode === 'slalom' ? slalomRates(t, p) : turnRates(t, p);
+  const { phiDot, psiDot } = rates;
+
+  heading += psiDot * dt;
+  motoX += Math.cos(heading) * p.V * dt * 18;
+  motoY += Math.sin(heading) * p.V * dt * 18;
+
+  pathPts.push({ x: motoX, y: motoY });
+  if (pathPts.length > MAX_TRAIL) pathPts.shift();
+
+  const phiR = phiDot * Math.PI/180 * 0;
+  const phiDotRad = phiDot;
+  const psiDotRad = psiDot;
+  const denom = psiDotRad*psiDotRad + phiDotRad*phiDotRad;
+  const sc = 14;
+
+  if (Math.abs(phiDotRad) > 0.005) {
+    const my = denom > 1e-6 ? (psiDotRad * p.V) / denom : 999;
+    const myClamp = Math.max(-15, Math.min(15, my));
+    const perpX = -Math.sin(heading) * myClamp * sc;
+    const perpY =  Math.cos(heading) * myClamp * sc;
+    mozziPts.push({ x: motoX + perpX, y: motoY + perpY, valid: Math.abs(my) < 14 });
+  } else {
+    mozziPts.push({ x: null });
+  }
+  if (mozziPts.length > MAX_TRAIL) mozziPts.shift();
+
+  if (Math.abs(psiDotRad) > 0.005) {
+    const R = Math.abs(p.V / psiDotRad);
+    const Rclamp = Math.min(R, 20);
+    const sign = psiDotRad > 0 ? 1 : -1;
+    const perpX = -Math.sin(heading) * sign * Rclamp * sc;
+    const perpY =  Math.cos(heading) * sign * Rclamp * sc;
+    turnPts.push({ x: motoX + perpX, y: motoY + perpY, valid: R < 19 });
+  } else {
+    turnPts.push({ x: null });
+  }
+  if (turnPts.length > MAX_TRAIL) turnPts.shift();
+
+  const Phi = Math.abs(phiDotRad) > 0.01 ? Math.atan2(psiDotRad, phiDotRad)*180/Math.PI : (psiDot > 0 ? 90 : -90);
+  document.getElementById('s-t').textContent    = t.toFixed(2) + ' s';
+  document.getElementById('s-roll').textContent = phiDot.toFixed(1) + '°/s';
+  document.getElementById('s-yaw').textContent  = psiDot.toFixed(3) + ' rad/s';
+  document.getElementById('s-phi').textContent  = Phi.toFixed(1) + '°';
+
+  t += dt;
+}
+
+function drawTrail(pts, color, radius, skipInvalid) {
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i];
+    if (!p || p.x === null) continue;
+    if (skipInvalid && !p.valid) continue;
+    const alpha = i / pts.length;
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, 2*Math.PI);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawGrid() {
+  ctx.strokeStyle = COL.grid();
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < 680; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,400); ctx.stroke();
+  }
+  for (let y = 0; y < 400; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(680,y); ctx.stroke();
+  }
+}
+
+function drawMoto(x, y, heading) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading);
+  ctx.fillStyle = COL.moto;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 14, 6, 0, 0, 2*Math.PI);
+  ctx.fill();
+  ctx.fillStyle = COL.moto;
+  ctx.beginPath();
+  ctx.moveTo(14, 0);
+  ctx.lineTo(8, -5);
+  ctx.lineTo(8, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, 680, 400);
+  ctx.fillStyle = COL.bg();
+  ctx.fillRect(0, 0, 680, 400);
+
+  drawGrid();
+
+  drawTrail(pathPts,  COL.path,  1.8, false);
+  drawTrail(turnPts,  COL.turn,  2.5, true);
+  drawTrail(mozziPts, COL.mozzi, 3,   true);
+
+  if (pathPts.length > 0) {
+    const last = pathPts[pathPts.length-1];
+    drawMoto(last.x, last.y, heading);
+  }
+
+  if (mozziPts.length > 0) {
+    const m = mozziPts[mozziPts.length-1];
+    if (m && m.x !== null && m.valid) {
+      ctx.strokeStyle = COL.mozzi;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath();
+      ctx.moveTo(motoX, motoY);
+      ctx.lineTo(m.x, m.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = COL.mozzi;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 4.5, 0, 2*Math.PI);
+      ctx.fill();
+    }
+  }
+
+  if (turnPts.length > 0) {
+    const tc = turnPts[turnPts.length-1];
+    if (tc && tc.x !== null && tc.valid) {
+      ctx.strokeStyle = COL.turn;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(motoX, motoY);
+      ctx.lineTo(tc.x, tc.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = COL.turn;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tc.x, tc.y, 5, 0, 2*Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  ctx.font = '11px var(--font-sans, sans-serif)';
+  ctx.fillStyle = COL.text();
+  ctx.fillText(mode === 'slalom' ? 'Slalom-Manöver' : 'Kurveneinlenken (Gegenlenkung)', 12, 18);
+}
+
+function loop() {
+  if (playing) step();
+  const last = pathPts[pathPts.length-1];
+  if (last) {
+    if (last.x < -80 || last.x > 760 || last.y < -80 || last.y > 480) reset();
+  }
+  drawFrame();
+  raf = requestAnimationFrame(loop);
+}
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? 'Pause' : 'Weiter';
+}
+
+function reset() {
+  t = 0;
+  motoX = 340; motoY = 340; heading = -Math.PI/2;
+  pathPts = []; mozziPts = []; turnPts = [];
+}
+
+function setMode(m) {
+  mode = m;
+  reset();
+  document.getElementById('btn-slalom').style.fontWeight = m === 'slalom' ? '500' : '400';
+  document.getElementById('btn-turn').style.fontWeight   = m === 'turn'   ? '500' : '400';
+}
+
+function onParam() {
+  document.getElementById('vel-v').textContent     = parseFloat(document.getElementById('vel').value).toFixed(1) + ' m/s';
+  document.getElementById('freq-v').textContent    = parseFloat(document.getElementById('freq').value).toFixed(2) + ' Hz';
+  document.getElementById('rollmax-v').textContent = parseInt(document.getElementById('rollmax').value) + '°/s';
+  reset();
+}
+
+setMode('slalom');
+loop();
+</script>
