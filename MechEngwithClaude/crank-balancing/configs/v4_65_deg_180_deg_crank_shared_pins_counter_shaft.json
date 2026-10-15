@@ -1,0 +1,113 @@
+{
+  "name": "V4 65 deg - 180 deg crank, shared pins + counter shaft",
+  "r_mm": 26.0,
+  "l_mm": 105.0,
+  "rpm": 13000.0,
+  "cylinders": [
+    {
+      "name": "A1",
+      "bank_deg": -32.5,
+      "pin_deg": 0.0,
+      "y_mm": -49.0,
+      "m_osc_g": 330.0,
+      "m_rot_g": 250.0,
+      "m_throw_g": 300.0
+    },
+    {
+      "name": "B1",
+      "bank_deg": 32.5,
+      "pin_deg": 0.0,
+      "y_mm": -31.0,
+      "m_osc_g": 330.0,
+      "m_rot_g": 250.0,
+      "m_throw_g": 300.0
+    },
+    {
+      "name": "A2",
+      "bank_deg": -32.5,
+      "pin_deg": 180.0,
+      "y_mm": 31.0,
+      "m_osc_g": 330.0,
+      "m_rot_g": 250.0,
+      "m_throw_g": 300.0
+    },
+    {
+      "name": "B2",
+      "bank_deg": 32.5,
+      "pin_deg": 180.0,
+      "y_mm": 49.0,
+      "m_osc_g": 330.0,
+      "m_rot_g": 250.0,
+      "m_throw_g": 300.0
+    }
+  ],
+  "crank_cw": {
+    "name": "Crankshaft counterweights",
+    "order": 1,
+    "sense": 1,
+    "enabled": true,
+    "planes_y_mm": [
+      -64.0,
+      64.0
+    ],
+    "r_c_mm": 35.0,
+    "x_mm": 0.0,
+    "z_mm": 0.0
+  },
+  "fwd_primary_on_crank": 1.0,
+  "shafts": [
+    {
+      "name": "Primary co-rotating (+1x)",
+      "order": 1,
+      "sense": 1,
+      "enabled": false,
+      "planes_y_mm": [
+        -60.0,
+        60.0
+      ],
+      "r_c_mm": 20.0,
+      "x_mm": 90.0,
+      "z_mm": -60.0
+    },
+    {
+      "name": "Primary counter-rotating (-1x)",
+      "order": 1,
+      "sense": -1,
+      "enabled": true,
+      "planes_y_mm": [
+        -60.0,
+        60.0
+      ],
+      "r_c_mm": 20.0,
+      "x_mm": -90.0,
+      "z_mm": -60.0
+    },
+    {
+      "name": "Secondary co-rotating (+2x)",
+      "order": 2,
+      "sense": 1,
+      "enabled": false,
+      "planes_y_mm": [
+        -60.0,
+        60.0
+      ],
+      "r_c_mm": 20.0,
+      "x_mm": 90.0,
+      "z_mm": -60.0
+    },
+    {
+      "name": "Secondary counter-rotating (-2x)",
+      "order": 2,
+      "sense": -1,
+      "enabled": false,
+      "planes_y_mm": [
+        -60.0,
+        60.0
+      ],
+      "r_c_mm": 20.0,
+      "x_mm": -90.0,
+      "z_mm": -60.0
+    }
+  ],
+  "notes": "Generic example numbers - replace with your own engine data."
+}

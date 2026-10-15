@@ -1,0 +1,113 @@
+{
+  "name": "Paper validation: V4 90 deg (Table 4)",
+  "r_mm": 40.0,
+  "l_mm": 135.0,
+  "rpm": 2000.0,
+  "cylinders": [
+    {
+      "name": "A1",
+      "bank_deg": -45.0,
+      "pin_deg": 0.0,
+      "y_mm": -45.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 875.0
+    },
+    {
+      "name": "B1",
+      "bank_deg": 45.0,
+      "pin_deg": 0.0,
+      "y_mm": -45.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 875.0
+    },
+    {
+      "name": "A2",
+      "bank_deg": -45.0,
+      "pin_deg": 180.0,
+      "y_mm": 45.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 875.0
+    },
+    {
+      "name": "B2",
+      "bank_deg": 45.0,
+      "pin_deg": 180.0,
+      "y_mm": 45.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 875.0
+    }
+  ],
+  "crank_cw": {
+    "name": "Crankshaft counterweights",
+    "order": 1,
+    "sense": 1,
+    "enabled": true,
+    "planes_y_mm": [
+      -45.0,
+      45.0
+    ],
+    "r_c_mm": 30.0,
+    "x_mm": 0.0,
+    "z_mm": 0.0
+  },
+  "fwd_primary_on_crank": 0.0,
+  "shafts": [
+    {
+      "name": "Primary co-rotating (+1x)",
+      "order": 1,
+      "sense": 1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": 100.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Primary counter-rotating (-1x)",
+      "order": 1,
+      "sense": -1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": -100.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Secondary co-rotating (+2x)",
+      "order": 2,
+      "sense": 1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": 200.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Secondary counter-rotating (-2x)",
+      "order": 2,
+      "sense": -1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": -200.0,
+      "z_mm": 0.0
+    }
+  ],
+  "notes": "Expected (paper Table 5): m_c = 1.700 kg per web (=3.400 kg per lumped plane). The paper's balance-shaft masses for this case are not comparable: it treats the V reciprocating forces as purely vertical; here the full 2-D phasors are used."
+}

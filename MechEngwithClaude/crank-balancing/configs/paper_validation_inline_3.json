@@ -1,0 +1,104 @@
+{
+  "name": "Paper validation: inline-3 (Table 1)",
+  "r_mm": 40.0,
+  "l_mm": 135.0,
+  "rpm": 2000.0,
+  "cylinders": [
+    {
+      "name": "1",
+      "bank_deg": 0.0,
+      "pin_deg": 0.0,
+      "y_mm": -90.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 1750.0
+    },
+    {
+      "name": "2",
+      "bank_deg": 0.0,
+      "pin_deg": 240.0,
+      "y_mm": 0.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 1750.0
+    },
+    {
+      "name": "3",
+      "bank_deg": 0.0,
+      "pin_deg": 120.0,
+      "y_mm": 90.0,
+      "m_osc_g": 940.0,
+      "m_rot_g": 400.0,
+      "m_throw_g": 1750.0
+    }
+  ],
+  "crank_cw": {
+    "name": "Crankshaft counterweights",
+    "order": 1,
+    "sense": 1,
+    "enabled": true,
+    "planes_y_mm": [
+      -90.0,
+      90.0
+    ],
+    "r_c_mm": 30.0,
+    "x_mm": 0.0,
+    "z_mm": 0.0
+  },
+  "fwd_primary_on_crank": 0.0,
+  "shafts": [
+    {
+      "name": "Primary co-rotating (+1x)",
+      "order": 1,
+      "sense": 1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": 100.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Primary counter-rotating (-1x)",
+      "order": 1,
+      "sense": -1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": -100.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Secondary co-rotating (+2x)",
+      "order": 2,
+      "sense": 1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": 200.0,
+      "z_mm": 0.0
+    },
+    {
+      "name": "Secondary counter-rotating (-2x)",
+      "order": 2,
+      "sense": -1,
+      "enabled": true,
+      "planes_y_mm": [
+        -100.0,
+        100.0
+      ],
+      "r_c_mm": 30.0,
+      "x_mm": -200.0,
+      "z_mm": 0.0
+    }
+  ],
+  "notes": "Expected (paper Table 2): m_c = 1.2413 kg per web (=2.4826 kg per lumped plane), m_c,1 = 0.4884 kg, m_c,2 = 0.0362 kg."
+}
