@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okane-moto"
+version = "0.1.0"
+description = "Companion code to O'Kane (2018), High Fidelity Modelling of Motorcycle Dynamics, chapters 1-4"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "sympy", "matplotlib"]
+
+[project.optional-dependencies]
+dev = ["pytest", "jupytext", "nbconvert", "ipykernel"]
+
+[tool.setuptools]
+packages = ["okane"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
