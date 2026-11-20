@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gear mesh dynamics: slow-motion animation</title>
+<style>
+  :root { --bg:#fafaf9; --panel:#ffffff; --ink:#111827; --mute:#6b7280; --line:#e5e7eb;
+          --blue:#1f5fa8; --red:#c0392b; --green:#2e8b57; --orange:#d97706; --purple:#7c3aed; --grey:#9ca3af; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { padding:10px 16px 4px; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header p { margin:2px 0 0; color:var(--mute); }
+  .wrap { display:grid; grid-template-columns: minmax(0,1fr) 340px; gap:12px; padding:8px 16px 16px; }
+  .views { display:grid; grid-template-columns: 1.35fr 1fr; gap:10px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; position:relative; }
+  .card h3 { margin:0 0 4px; font-size:12px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; }
+  canvas { display:block; width:100%; }
+  #status { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-variant-numeric:tabular-nums; }
+  #status .pill { padding:2px 8px; border-radius:10px; background:#f3f4f6; }
+  #state.drive { background:#dcfce7; color:#14532d; } #state.coast { background:#ffedd5; color:#7c2d12; }
+  #state.flight { background:#e0e7ff; color:#1e3a8a; }
+  .plots { display:grid; grid-template-columns:1fr; gap:6px; margin-top:10px; }
+  aside { display:flex; flex-direction:column; gap:10px; }
+  aside .card { padding:10px 12px; }
+  label { display:flex; align-items:center; gap:6px; margin:4px 0; }
+  label.row { justify-content:space-between; }
+  label .val { font-variant-numeric:tabular-nums; color:var(--mute); min-width:70px; text-align:right; }
+  input[type=range] { width:110px; flex:0 0 auto; }
+  label.row > span:first-child, label.row { white-space:nowrap; }
+  select { width:100%; padding:4px; font:inherit; }
+  .btns { display:flex; gap:6px; }
+  button { font:inherit; padding:5px 10px; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer; }
+  button.primary { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .desc { color:var(--mute); font-size:12px; margin:4px 0 2px; }
+  .hint { color:var(--mute); font-size:11px; }
+  .dis { opacity:.45; }
+  .legend { display:flex; gap:10px; flex-wrap:wrap; font-size:11px; color:var(--mute); margin-top:2px; }
+  .legend i { display:inline-block; width:14px; height:3px; vertical-align:middle; margin-right:3px; }
+  @media (max-width: 1100px) { .wrap { grid-template-columns:1fr; } .views { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gear mesh dynamics in slow motion</h1>
+  <p>Reference pair of the geardyn series (24/48 teeth, m 2.5 mm, 20°, 15 mm face). The physics runs in real units in your browser. Only the <b>display</b> is slowed down and the deflections magnified.</p>
+</header>
+<div class="wrap">
+  <main>
+    <div class="views">
+      <div class="card"><h3>Overview</h3><canvas id="cv" height="440"></canvas></div>
+      <div class="card"><h3>Mesh zoom (at the pitch point)</h3><canvas id="cz" height="440"></canvas></div>
+    </div>
+    <div id="status" class="card">
+      <span class="pill" id="tsim">t = 0</span>
+      <span class="pill" id="state">–</span>
+      <span class="pill" id="imp">impacts 0</span>
+      <span class="pill" id="rest">e = –</span>
+      <span class="pill" id="fnow">F = –</span>
+      <span class="pill" id="info">–</span>
+    </div>
+    <div class="plots">
+      <div class="card"><h3>Relative position in the backlash (along the LOA)</h3><canvas id="p1" height="120"></canvas>
+        <div class="legend"><span><i style="background:var(--blue)"></i>δ (µm), positive towards the drive flank</span><span><i style="background:var(--grey)"></i>flank positions (gap edges)</span></div></div>
+      <div class="card"><h3>Forces</h3><canvas id="p2" height="120"></canvas>
+        <div class="legend"><span><i style="background:var(--green)"></i>drive flank F_d</span><span><i style="background:var(--orange)"></i>coast flank −F_r</span><span><i style="background:var(--red)"></i>|bearing force| gear 1</span></div></div>
+      <div class="card"><h3 id="p3title">Energy</h3><canvas id="p3" height="120"></canvas><div class="legend" id="p3leg"></div></div>
+    </div>
+  </main>
+  <aside>
+    <div class="card">
+      <div class="btns"><button id="play" class="primary">Pause</button><button id="restart">Restart</button><button id="stepb">Step</button></div>
+      <label class="row" style="margin-top:8px">Slow motion <input type="range" id="slow" min="-1.5" max="2.5" step="0.05" value="0.5"><span class="val" id="slowv"></span></label>
+      <div class="hint">real seconds of animation per simulated millisecond</div>
+    </div>
+    <div class="card">
+      <h3>Scenario</h3>
+      <select id="scen">
+        <option value="release">A · Preload &amp; release</option>
+        <option value="tipin">B · Tip-in through the backlash (clunk)</option>
+        <option value="rattle">C · Idle rattle (speed fluctuation)</option>
+        <option value="running">D · Steady running, mesh stiffness ripple</option>
+      </select>
+      <div class="desc" id="scendesc"></div>
+      <div id="scenparams"></div>
+    </div>
+    <div class="card">
+      <h3>Effects</h3>
+      <label class="row"><span><input type="checkbox" id="e_bl" checked> Backlash</span><input type="range" id="bl" min="5" max="150" step="5" value="60"><span class="val" id="blv"></span></label>
+      <label><input type="checkbox" id="e_tv"> Time-varying mesh stiffness (1↔2 pairs)</label>
+      <label class="row">Mesh damping ζ <input type="range" id="zeta" min="0" max="0.2" step="0.01" value="0.05"><span class="val" id="zetav"></span></label>
+      <label class="row"><span><input type="checkbox" id="e_br"> Flexible bearings</span><input type="range" id="kb" min="0.5" max="10" step="0.5" value="3"><span class="val" id="kbv"></span></label>
+      <label><input type="checkbox" id="e_bend"> Flexible shafts: bending (lateral)</label>
+      <label><input type="checkbox" id="e_in"> Drivetrain inertias J_in, J_out</label>
+      <label id="lab_tor"><input type="checkbox" id="e_tor"> Flexible shafts: torsion</label>
+      <div class="hint">Without "flexible shafts: torsion", J_in and J_out are rigidly fixed to the gears. Changing an effect restarts the scenario.</div>
+    </div>
+    <div class="card">
+      <h3>Display magnification</h3>
+      <label class="row">Tooth compression <input type="range" id="ap" min="10" max="400" step="10" value="120"><span class="val" id="apv"></span></label>
+      <label class="row">Backlash shown as <input type="range" id="gv" min="0.2" max="1.5" step="0.05" value="0.7"><span class="val" id="gvv"></span></label>
+      <label class="row">Lateral motion <input type="range" id="al" min="50" max="1500" step="50" value="400"><span class="val" id="alv"></span></label>
+      <label class="row">Shaft twist <input type="range" id="at" min="1" max="100" step="1" value="20"><span class="val" id="atv"></span></label>
+      <label class="row">Plot window <input type="range" id="win" min="0.5" max="100" step="0.5" value="6"><span class="val" id="winv"></span></label>
+      <div class="hint">The backlash is drawn at a fixed visible width. Penetration beyond contact (tooth compression) and gear-centre motion use their own magnification factors, so the same picture shows µm deflections next to a 60 µm gap.</div>
+    </div>
+  </aside>
+</div>
+<script>
+// geardyn-lite: gear-pair dynamics for the browser animation.
+// Same conventions as geardyn.py: theta1 CCW+, theta2 CW+, s = rb1*th1 - rb2*th2,
+// drive flank force on gear 2 along n_d = (sin a, cos a), coast n_r = (sin a, -cos a).
+// DOFs: q = [phi_in, th1, th2, phi_out, x1, y1, x2, y2]
+"use strict";
+
+function makeGearPair(o = {}) {
+  const gp = Object.assign({
+    z1: 24, z2: 48, m: 2.5e-3, alphaDeg: 20, b: 15e-3, ha: 1.0, hf: 1.25,
+    cPrime: 14.0, zeta: 0.05, rho: 7850, tvRatio: 1.6, tvSmooth: 0.03,
+    m1Extra: 0.3, m2Extra: 0.6,
+  }, o);
+  const al = gp.alphaDeg * Math.PI / 180;
+  gp.alpha = al; gp.sa = Math.sin(al); gp.ca = Math.cos(al);
+  gp.r1 = gp.m * gp.z1 / 2; gp.r2 = gp.m * gp.z2 / 2;
+  gp.rb1 = gp.r1 * gp.ca; gp.rb2 = gp.r2 * gp.ca;
+  gp.ra1 = gp.r1 + gp.ha * gp.m; gp.ra2 = gp.r2 + gp.ha * gp.m;
+  gp.a = gp.r1 + gp.r2; gp.i = gp.z2 / gp.z1; gp.pb = Math.PI * gp.m * gp.ca;
+  gp.eps = (Math.sqrt(gp.ra1 ** 2 - gp.rb1 ** 2) + Math.sqrt(gp.ra2 ** 2 - gp.rb2 ** 2) - gp.a * gp.sa) / gp.pb;
+  const md1 = gp.rho * Math.PI * gp.r1 ** 2 * gp.b, md2 = gp.rho * Math.PI * gp.r2 ** 2 * gp.b;
+  gp.J1 = 0.5 * md1 * gp.r1 ** 2; gp.J2 = 0.5 * md2 * gp.r2 ** 2;
+  gp.m1 = md1 + gp.m1Extra; gp.m2 = md2 + gp.m2Extra;
+  gp.meq = 1 / (gp.rb1 ** 2 / gp.J1 + gp.rb2 ** 2 / gp.J2);
+  gp.cGamma = gp.cPrime * (0.75 * gp.eps + 0.25);
+  gp.k = gp.cGamma * gp.b * 1e3 * 1e6;
+  gp.c = 2 * gp.zeta * Math.sqrt(gp.k * gp.meq);
+  // time-varying stiffness: smoothed box, mean = k
+  const e = Math.min(gp.eps, 2), h = 0.5 * (e - 1), sw = Math.max(gp.tvSmooth, 1e-4);
+  const box = (s) => {
+    const d = ((s - h + 0.5) % 1 + 1) % 1 - 0.5, A = (d + h) / sw, B = (d - h) / sw;
+    const ch2a = 1 / Math.cosh(A) ** 2, ch2b = 1 / Math.cosh(B) ** 2;
+    return [0.5 * (Math.tanh(A) - Math.tanh(B)), 0.5 / sw * (ch2a - ch2b)];
+  };
+  let mean = 0; const N = 4000;
+  for (let j = 0; j < N; j++) mean += 1 + (gp.tvRatio - 1) * box(j / N)[0];
+  gp.kSingle = gp.k / (mean / N);
+  gp.kOfS = (s) => { const [w, dw] = box(s); return [gp.kSingle * (1 + (gp.tvRatio - 1) * w), gp.kSingle * (gp.tvRatio - 1) * dw]; };
+  return gp;
+}
+
+// options: backlash [m], tv (bool), bearings (bool), bending (bool), inertias (bool),
+// shafts (bool, torsional flexibility), kb, kBend, ks1, ks2, Jin, Jout, zetaS, zetaB
+function makeSim(gp, opt) {
+  const o = Object.assign({
+    backlash: 60e-6, tv: false, bearings: false, bending: false, inertias: false, shafts: false,
+    kb: 3e8, kBend: 3e8, ks1: 1.62e4, ks2: 4.25e4, Jin: 0.02, Jout: 0.05, zetaS: 0.02, zetaB: 0.03,
+  }, opt);
+  const sim = { gp, o, t: 0, Ediss: 0, Wext: 0 };
+  const g = o.backlash / 2;
+  const shaftFlex = o.inertias && o.shafts;
+  const lateral = o.bearings || o.bending;
+  let kl = 0;
+  if (lateral) {
+    const parts = [];
+    parts.push(o.bearings ? o.kb : Infinity);
+    parts.push(o.bending ? o.kBend : Infinity);
+    kl = 1 / parts.reduce((s, k) => s + 1 / k, 0);
+  }
+  sim.kl = kl; sim.shaftFlex = shaftFlex; sim.lateral = lateral; sim.gap = g;
+  const I = [o.Jin, gp.J1, gp.J2, o.Jout, gp.m1, gp.m1, gp.m2, gp.m2];
+  if (o.inertias && !shaftFlex) { I[1] += o.Jin; I[2] += o.Jout; }
+  sim.I = I;
+  sim.inDof = shaftFlex ? 0 : 1; sim.outDof = shaftFlex ? 3 : 2;
+  // active dofs
+  const act = [shaftFlex, true, true, shaftFlex, lateral, lateral, lateral, lateral];
+  sim.act = act;
+  const cs1 = 2 * o.zetaS * Math.sqrt(o.ks1 * (o.Jin * gp.J1 / (o.Jin + gp.J1)));
+  const cs2 = 2 * o.zetaS * Math.sqrt(o.ks2 * (o.Jout * gp.J2 / (o.Jout + gp.J2)));
+  const cl1 = lateral ? 2 * o.zetaB * Math.sqrt(kl * gp.m1) : 0, cl2 = lateral ? 2 * o.zetaB * Math.sqrt(kl * gp.m2) : 0;
+  sim.q = new Float64Array(8); sim.v = new Float64Array(8);
+  sim.clampOut = false;        // output-end dof fixed
+  sim.Tin = () => 0;           // torque on input-end dof (t)
+  sim.Tout = () => 0;          // load torque on output-end dof (opposing CW rotation)
+  sim.presc = null;            // {f, fd, fdd} prescribed input-end motion
+
+  // mesh evaluation
+  function mesh(q, v) {
+    const th1 = q[1], th2 = q[2];
+    const s = gp.rb1 * th1 - gp.rb2 * th2, sd = gp.rb1 * v[1] - gp.rb2 * v[2];
+    const dx = q[4] - q[6], dy = q[5] - q[7], dxd = v[4] - v[6], dyd = v[5] - v[7];
+    const pd = s + dx * gp.sa + dy * gp.ca - g, pr = -s + dx * gp.sa - dy * gp.ca - g;
+    const pdd = sd + dxd * gp.sa + dyd * gp.ca, prd = -sd + dxd * gp.sa - dyd * gp.ca;
+    let k = gp.k, dk = 0;
+    if (o.tv) { const r = gp.kOfS(th1 * gp.z1 / (2 * Math.PI)); k = r[0]; dk = r[1] * gp.z1 / (2 * Math.PI); }
+    const Fd = pd > 0 ? Math.max(k * pd + gp.c * pdd, 0) : 0;
+    const Fr = pr > 0 ? Math.max(k * pr + gp.c * prd, 0) : 0;
+    const pdp = Math.max(pd, 0), prp = Math.max(pr, 0);
+    const U = 0.5 * k * (pdp * pdp + prp * prp);
+    const P = (Fd - k * pdp) * pdd + (Fr - k * prp) * prd;
+    return { Fd, Fr, F: Fd - Fr, pd, pr, pdd, prd, s, k, U, P, dUdth: 0.5 * dk * (pdp * pdp + prp * prp) };
+  }
+  sim.mesh = mesh;
+
+  function forces(t, q, v) {
+    const Q = new Float64Array(8);
+    const m = mesh(q, v);
+    Q[1] += -gp.rb1 * m.F - m.dUdth; Q[2] += gp.rb2 * m.F;
+    if (lateral) {
+      const fx2 = (m.Fd + m.Fr) * gp.sa, fy2 = (m.Fd - m.Fr) * gp.ca;
+      Q[4] -= fx2; Q[5] -= fy2; Q[6] += fx2; Q[7] += fy2;
+      Q[4] -= kl * q[4] + cl1 * v[4]; Q[5] -= kl * q[5] + cl1 * v[5];
+      Q[6] -= kl * q[6] + cl2 * v[6]; Q[7] -= kl * q[7] + cl2 * v[7];
+    }
+    let Pd = m.P + (lateral ? cl1 * (v[4] ** 2 + v[5] ** 2) + cl2 * (v[6] ** 2 + v[7] ** 2) : 0);
+    if (shaftFlex) {
+      const t1 = o.ks1 * (q[0] - q[1]) + cs1 * (v[0] - v[1]);
+      const t2 = o.ks2 * (q[2] - q[3]) + cs2 * (v[2] - v[3]);
+      Q[0] -= t1; Q[1] += t1; Q[2] -= t2; Q[3] += t2;
+      Pd += cs1 * (v[0] - v[1]) ** 2 + cs2 * (v[2] - v[3]) ** 2;
+    }
+    const Ti = sim.Tin(t), To = sim.Tout(t);
+    Q[sim.inDof] += Ti; Q[sim.outDof] -= To;
+    const Pw = Ti * v[sim.inDof] - To * v[sim.outDof];
+    return { Q, m, Pd, Pw };
+  }
+  sim.forces = forces;
+
+  function applyConstraints(t, q, v) {
+    if (sim.presc) { const p = sim.presc; q[sim.inDof] = p.f(t); v[sim.inDof] = p.fd(t); }
+    if (sim.clampOut) { v[sim.outDof] = 0; }
+    if (!shaftFlex) { q[0] = q[1]; v[0] = v[1]; q[3] = q[2]; v[3] = v[2]; }
+  }
+  sim.applyConstraints = applyConstraints;
+
+  function deriv(t, q, v) {
+    applyConstraints(t, q, v);
+    const { Q, Pd, Pw } = forces(t, q, v);
+    const a = new Float64Array(8);
+    for (let j = 0; j < 8; j++) a[j] = act[j] ? Q[j] / I[j] : 0;
+    if (sim.presc) a[sim.inDof] = sim.presc.fdd(t);
+    if (sim.clampOut) a[sim.outDof] = 0;
+    if (!shaftFlex) { a[0] = a[1]; a[3] = a[2]; }
+    return { a, Pd, Pw };
+  }
+
+  sim.step = function (dt) {
+    const t = sim.t, q = sim.q, v = sim.v;
+    applyConstraints(t, q, v);
+    const k1 = deriv(t, q.slice(), v.slice());
+    const q2 = new Float64Array(8), v2 = new Float64Array(8);
+    for (let j = 0; j < 8; j++) { q2[j] = q[j] + 0.5 * dt * v[j]; v2[j] = v[j] + 0.5 * dt * k1.a[j]; }
+    const k2 = deriv(t + dt / 2, q2, v2);
+    const q3 = new Float64Array(8), v3 = new Float64Array(8);
+    for (let j = 0; j < 8; j++) { q3[j] = q[j] + 0.5 * dt * v2[j]; v3[j] = v[j] + 0.5 * dt * k2.a[j]; }
+    const k3 = deriv(t + dt / 2, q3, v3);
+    const q4 = new Float64Array(8), v4 = new Float64Array(8);
+    for (let j = 0; j < 8; j++) { q4[j] = q[j] + dt * v3[j]; v4[j] = v[j] + dt * k3.a[j]; }
+    const k4 = deriv(t + dt, q4, v4);
+    for (let j = 0; j < 8; j++) {
+      q[j] += dt / 6 * (v[j] + 2 * v2[j] + 2 * v3[j] + v4[j]);
+      v[j] += dt / 6 * (k1.a[j] + 2 * k2.a[j] + 2 * k3.a[j] + k4.a[j]);
+    }
+    sim.Ediss += dt / 6 * (k1.Pd + 2 * k2.Pd + 2 * k3.Pd + k4.Pd);
+    sim.Wext += dt / 6 * (k1.Pw + 2 * k2.Pw + 2 * k3.Pw + k4.Pw);
+    sim.t = t + dt;
+    applyConstraints(sim.t, q, v);
+  };
+
+  // energies
+  sim.energies = function () {
+    const q = sim.q, v = sim.v, m = mesh(q, v);
+    let T = 0; for (let j = 0; j < 8; j++) if (act[j]) T += 0.5 * I[j] * v[j] ** 2;
+    const Ub = lateral ? 0.5 * kl * (q[4] ** 2 + q[5] ** 2 + q[6] ** 2 + q[7] ** 2) : 0;
+    const Us = shaftFlex ? 0.5 * o.ks1 * (q[0] - q[1]) ** 2 + 0.5 * o.ks2 * (q[2] - q[3]) ** 2 : 0;
+    return { T, Um: m.U, Ub, Us, Ed: sim.Ediss, W: sim.Wext };
+  };
+
+  // static state transmitting torque T (>0 drive flank, <0 coast flank) with the
+  // output end held at angle phiOut (rotating frame for steady running)
+  sim.staticState = function (T, phiOut = 0) {
+    const q = sim.q; q.fill(0);
+    const F = T / gp.rb1;                  // signed mesh force
+    const Fd = Math.max(F, 0), Fr = Math.max(-F, 0);
+    if (lateral) {
+      const fx2 = (Fd + Fr) * gp.sa, fy2 = (Fd - Fr) * gp.ca;
+      q[4] = -fx2 / kl; q[5] = -fy2 / kl; q[6] = fx2 / kl; q[7] = fy2 / kl;
+    }
+    let k = gp.k;
+    const T2 = F * gp.rb2;                 // torque on gear 2 (CW) from the mesh
+    q[3] = phiOut;
+    q[2] = phiOut + (shaftFlex ? T2 / o.ks2 : 0);
+    // penetration on the loaded flank (iterate once for tv stiffness)
+    for (let it = 0; it < 3; it++) {
+      if (o.tv) k = gp.kOfS(q[1] * gp.z1 / (2 * Math.PI))[0];
+      const dx = q[4] - q[6], dy = q[5] - q[7];
+      if (F >= 0) q[1] = (Math.abs(F) / k + g - dx * gp.sa - dy * gp.ca + gp.rb2 * q[2]) / gp.rb1;
+      else q[1] = (-(Math.abs(F) / k + g) + dx * gp.sa - dy * gp.ca + gp.rb2 * q[2]) / gp.rb1;
+    }
+    q[0] = q[1] + (shaftFlex ? T / o.ks1 : 0);
+    if (!shaftFlex) { q[0] = q[1]; q[3] = q[2]; }
+    sim.v.fill(0); sim.Ediss = 0; sim.Wext = 0;
+  };
+  return sim;
+}
+
+
+
+</script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const C = { blue:"#1f5fa8", red:"#c0392b", green:"#2e8b57", orange:"#d97706", purple:"#7c3aed", grey:"#9ca3af", ink:"#111827", mute:"#6b7280" };
+const gp = makeGearPair();
+const MM = 1000;                  // m -> mm
+const DT = 0.5e-6;                // integration step [s]
+
+// ---------------- scenarios ----------------
+const SCEN = {
+  release: {
+    desc: "Gear 2 (or the output end) is clamped and gear 1 (or the input end) is twisted with T0 and held. After 0.3 ms it is let go: the tooth spring pushes it back, it flies through the backlash, hits the coast flank, rebounds…",
+    params: [["T0", "Preload T0 [N m]", 5, 80, 5, 40], ["mode", "After release", ["input end released, output held", "both ends released"], 0]],
+    slow: 0.5, slowInert: -0.7, win: 6, winInert: 40, plot3: "energy",
+  },
+  tipin: {
+    desc: "Coasting at constant speed with engine braking (coast flank loaded). At t = 0.5 ms the throttle opens: the input torque ramps to T_tip, the pinion crosses the backlash and slams onto the drive flank. With drivetrain inertias and flexible shafts this becomes a repeated clunk.",
+    params: [["Ttip", "Tip-in torque [N m]", 10, 80, 5, 40], ["Tb", "Engine braking [N m]", 2, 30, 1, 10], ["ramp", "Ramp time [ms]", 0.05, 5, 0.05, 0.3], ["n0", "Speed [rpm]", 0, 6000, 250, 2000]],
+    slow: 0.6, slowInert: -0.8, win: 5, winInert: 50, plot3: "speeds",
+  },
+  rattle: {
+    desc: "Input driven at 1500 rpm with a 2nd-order speed fluctuation (crank irregularity). Gear 2 only has a small drag torque. Above A_crit = i·T_d/(J2·ω_e²) it cannot follow and rattles through the backlash.",
+    params: [["Afac", "Fluctuation A / A_crit", 0.2, 5, 0.1, 2], ["Td", "Drag torque [N m]", 0.05, 2, 0.05, 0.2]],
+    slow: -0.6, slowInert: -0.6, win: 60, winInert: 60, plot3: "speeds",
+  },
+  running: {
+    desc: "Input at constant speed, output loaded with i·T. Turn on the time-varying mesh stiffness: the force ripples at the tooth-mesh frequency z1·n/60. Near 9 100 and 18 200 rpm (resonances) the teeth can separate.",
+    params: [["n", "Speed [rpm]", 1000, 24000, 100, 9100], ["T", "Torque [N m]", 5, 80, 5, 40]],
+    slow: 0.9, slowInert: 0.9, win: 2, winInert: 2, plot3: "speeds",
+  },
+};
+const P = {};       // current scenario parameter values
+
+function buildParams() {
+  const s = SCEN[$("scen").value]; const box = $("scenparams"); box.innerHTML = "";
+  $("scendesc").textContent = s.desc;
+  for (const p of s.params) {
+    const [key, lab] = p;
+    if (Array.isArray(p[2])) {
+      const l = document.createElement("label"); l.innerHTML = `${lab} `;
+      const sel = document.createElement("select"); p[2].forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t; sel.appendChild(o); });
+      sel.value = P[key] ?? p[3]; P[key] = +sel.value; sel.onchange = () => { P[key] = +sel.value; restart(); };
+      l.appendChild(sel); box.appendChild(l);
+    } else {
+      const [, , mn, mx, st, def] = p;
+      const l = document.createElement("label"); l.className = "row";
+      l.innerHTML = `${lab} <input type="range" min="${mn}" max="${mx}" step="${st}" value="${P[key] ?? def}"><span class="val"></span>`;
+      const inp = l.querySelector("input"), v = l.querySelector(".val");
+      const upd = () => { P[key] = +inp.value; v.textContent = (+inp.value).toString(); };
+      upd(); inp.oninput = upd; inp.onchange = restart;
+      box.appendChild(l);
+    }
+  }
+}
+
+// ---------------- simulation setup ----------------
+let sim, hist, E0, hold = 0, impacts, lastApproach, restit, contactState, prevPd, prevPr, scenInfo = "";
+
+function options() {
+  return {
+    backlash: $("e_bl").checked ? +$("bl").value * 1e-6 : 0,
+    tv: $("e_tv").checked, bearings: $("e_br").checked, bending: $("e_bend").checked,
+    inertias: $("e_in").checked, shafts: $("e_in").checked && $("e_tor").checked,
+    kb: +$("kb").value * 1e8,
+  };
+}
+
+function restart() {
+  const g2 = makeGearPair({ zeta: +$("zeta").value });
+  sim = makeSim(g2, options());
+  const sc = $("scen").value, gp_ = sim.gp;
+  impacts = 0; restit = []; lastApproach = null; contactState = ""; hold = 0; scenInfo = "";
+  if (sc === "release") {
+    sim.clampOut = true; sim.staticState(P.T0);
+    hold = 0.3e-3;
+    sim.Tin = (t) => (t < hold ? P.T0 : 0);
+    sim.onTime = (t) => { if (P.mode === 1 && t >= hold) sim.clampOut = false; };
+    scenInfo = `preload force T0/r_b1 = ${(P.T0 / gp_.rb1).toFixed(0)} N`;
+  } else if (sc === "tipin") {
+    const W = P.n0 * 2 * Math.PI / 60, t0 = 0.5e-3, tr = P.ramp * 1e-3;
+    sim.staticState(-P.Tb);
+    const Tout = -gp_.i * P.Tb;           // vehicle drives the output while coasting
+    sim.Tout = () => Tout;
+    sim.Tin = (t) => { if (t < t0) return -P.Tb; const x = Math.min((t - t0) / tr, 1); return -P.Tb + (P.Ttip + P.Tb) * 0.5 * (1 - Math.cos(Math.PI * x)); };
+    setSpeeds(W);
+    scenInfo = `mesh force −${(P.Tb / gp_.rb1).toFixed(0)} N → +${(P.Ttip / gp_.rb1).toFixed(0)} N`;
+  } else if (sc === "rattle") {
+    const W = 1500 * 2 * Math.PI / 60, we = 2 * W;
+    const J2e = sim.I[2] + (sim.shaftFlex ? sim.o.Jout : 0);
+    const Acrit = gp_.i * P.Td / (J2e * we * we), A = P.Afac * Acrit;
+    sim.Tout = () => P.Td;
+    sim.staticState(P.Td / gp_.i);
+    const q0 = sim.q[sim.inDof];
+    sim.presc = { f: (t) => q0 + W * t + A * Math.sin(we * t), fd: (t) => W + A * we * Math.cos(we * t), fdd: (t) => -A * we * we * Math.sin(we * t) };
+    setSpeeds(W); sim.v[sim.inDof] = W + A * we; if (!sim.shaftFlex) sim.v[0] = sim.v[1];
+    scenInfo = `A_crit = ${(Acrit * 180 / Math.PI * 60).toFixed(2)} arcmin (J2,eff = ${J2e.toExponential(2)} kg m²), A = ${(A * 180 / Math.PI * 60).toFixed(2)} arcmin`;
+  } else if (sc === "running") {
+    const W = P.n * 2 * Math.PI / 60;
+    sim.Tout = () => gp_.i * P.T;
+    sim.staticState(P.T);
+    const q0 = sim.q[sim.inDof];
+    sim.presc = { f: (t) => q0 + W * t, fd: () => W, fdd: () => 0 };
+    setSpeeds(W);
+    scenInfo = `mesh frequency ${(gp_.z1 * P.n / 60).toFixed(0)} Hz, mesh mode ≈ ${(Math.sqrt(gp_.k / gp_.meq) / 2 / Math.PI).toFixed(0)} Hz`;
+  }
+  sim.onTime = sim.onTime || (() => {});
+  const e = sim.energies(); E0 = Math.max(e.Um + e.Ub + e.Us, 1e-9);
+  hist = { t: [], e: [], band: [], Fd: [], Fr: [], Rb: [], a: [], b: [], c: [], d: [], e5: [] };
+  prevPd = null; prevPr = null;
+  // per-scenario defaults for slow motion / window when the scenario changes
+  draw(); sample(true);
+}
+
+function setSpeeds(W) {
+  for (const j of [0, 1]) sim.v[j] = W;
+  for (const j of [2, 3]) sim.v[j] = W / sim.gp.i;
+}
+
+// ---------------- history ----------------
+let lastSample = -1;
+function bearingForce1() {
+  const q = sim.q, v = sim.v, gp_ = sim.gp;
+  if (sim.lateral) {
+    const cl = 2 * sim.o.zetaB * Math.sqrt(sim.kl * gp_.m1);
+    return [-(sim.kl * q[4] + cl * v[4]), -(sim.kl * q[5] + cl * v[5])];
+  }
+  const m = sim.mesh(q, v);       // rigid bearing: reaction = -(force on gear 1) = force on gear 2
+  return [(m.Fd + m.Fr) * gp_.sa, (m.Fd - m.Fr) * gp_.ca];
+}
+function sample(force) {
+  const win = +$("win").value * 1e-3;
+  const dts = win / 700;
+  if (!force && sim.t - lastSample < dts) return;
+  lastSample = sim.t;
+  const q = sim.q, v = sim.v, gp_ = sim.gp, m = sim.mesh(q, v);
+  const dx = q[4] - q[6];
+  const e = 0.5 * (m.pd - m.pr), band = sim.gap - dx * gp_.sa;
+  const R = bearingForce1();
+  hist.t.push(sim.t); hist.e.push(e * 1e6); hist.band.push(band * 1e6);
+  hist.Fd.push(m.Fd); hist.Fr.push(-m.Fr); hist.Rb.push(Math.hypot(R[0], R[1]));
+  const mode = plot3Mode();
+  if (mode === "energy") {
+    const en = sim.energies();
+    hist.a.push(en.Um / E0); hist.b.push(en.Ub / E0); hist.c.push(en.Us / E0); hist.d.push(en.T / E0); hist.e5.push(en.Ed / E0);
+  } else {
+    const rpm = 60 / (2 * Math.PI);
+    hist.a.push(v[0] * rpm); hist.b.push(v[1] * rpm); hist.c.push(v[2] * gp_.i * rpm); hist.d.push(v[3] * gp_.i * rpm); hist.e5.push(0);
+  }
+  const tmin = sim.t - win * 1.05;
+  while (hist.t.length && hist.t[0] < tmin) for (const k in hist) hist[k].shift();
+}
+function plot3Mode() { return SCEN[$("scen").value].plot3; }
+
+// ---------------- contact events ----------------
+function events() {
+  const m = sim.mesh(sim.q, sim.v);
+  const st = m.pd > 0 ? "drive" : m.pr > 0 ? "coast" : "flight";
+  if (prevPd !== null) {
+    for (const [p, pp, rate, name] of [[m.pd, prevPd, m.pdd, "drive"], [m.pr, prevPr, m.prd, "coast"]]) {
+      if (pp <= 0 && p > 0) { impacts++; lastApproach = { v: Math.abs(rate), flank: name }; }
+      if (pp > 0 && p <= 0 && lastApproach && lastApproach.flank === name && lastApproach.v > 1e-3) {
+        restit.push(Math.abs(rate) / lastApproach.v); if (restit.length > 20) restit.shift(); lastApproach = null;
+      }
+    }
+  }
+  prevPd = m.pd; prevPr = m.pr; contactState = st;
+}
+
+// ---------------- drawing helpers ----------------
+function inv(a) { return Math.tan(a) - a; }
+const outlineCache = {};
+function gearOutline(z, m, alphaDeg, ha, hf, dphi) {
+  const key = [z, m, dphi.toFixed(6)].join("|");
+  if (outlineCache[key]) return outlineCache[key];
+  const al = alphaDeg * Math.PI / 180, r = m * z / 2, rb = r * Math.cos(al), ra = r + ha * m, rf = r - hf * m;
+  const psi = Math.PI / (2 * z) + inv(al) - dphi;
+  const n = 14, rr = [], ang = [];
+  const r0 = Math.max(rb, rf);
+  for (let j = 0; j < n; j++) { const R = r0 + (ra - r0) * j / (n - 1); rr.push(R); ang.push(Math.max(psi - inv(Math.acos(Math.min(rb / R, 1))), 0.004)); }
+  const pts = [];
+  for (let k = 0; k < z; k++) {
+    const c = 2 * Math.PI * k / z;
+    pts.push([rf * Math.cos(c - ang[0]), rf * Math.sin(c - ang[0])]);
+    for (let j = 0; j < n; j++) pts.push([rr[j] * Math.cos(c - ang[j]), rr[j] * Math.sin(c - ang[j])]);
+    for (let j = n - 1; j >= 0; j--) pts.push([rr[j] * Math.cos(c + ang[j]), rr[j] * Math.sin(c + ang[j])]);
+    pts.push([rf * Math.cos(c + ang[0]), rf * Math.sin(c + ang[0])]);
+    for (let j = 1; j < 6; j++) { const t = c + ang[0] + (2 * Math.PI / z - 2 * ang[0]) * j / 6; pts.push([rf * Math.cos(t), rf * Math.sin(t)]); }
+  }
+  outlineCache[key] = pts; return pts;
+}
+
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = +cv.getAttribute("height");
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + "px"; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return [ctx, w, h];
+}
+function view(ctx, w, h, cx, cy, span) {   // world mm -> px, y up
+  const s = Math.min(w, h) / span;
+  return { s, X: (x) => w / 2 + (x - cx) * s, Y: (y) => h / 2 - (y - cy) * s };
+}
+function polyGear(ctx, V, pts, ox, oy, rot, fill, stroke) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => { const X = V.X(ox + x * c - y * s), Y = V.Y(oy + x * s + y * c); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke();
+}
+function circle(ctx, V, x, y, r, stroke, dash, fill) {
+  ctx.beginPath(); ctx.arc(V.X(x), V.Y(y), r * V.s, 0, 2 * Math.PI);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.setLineDash(dash || []); ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]); }
+}
+function line(ctx, V, x0, y0, x1, y1, col, lw, dash) {
+  ctx.beginPath(); ctx.moveTo(V.X(x0), V.Y(y0)); ctx.lineTo(V.X(x1), V.Y(y1));
+  ctx.strokeStyle = col; ctx.lineWidth = lw || 1; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]);
+}
+function arrow(ctx, V, x, y, dx, dy, col, lw, label) {
+  const X0 = V.X(x), Y0 = V.Y(y), X1 = V.X(x + dx), Y1 = V.Y(y + dy);
+  const L = Math.hypot(X1 - X0, Y1 - Y0); if (L < 2) return;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw || 2;
+  ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
+  const ux = (X1 - X0) / L, uy = (Y1 - Y0) / L, hs = 8;
+  ctx.beginPath(); ctx.moveTo(X1, Y1); ctx.lineTo(X1 - hs * ux - hs * 0.45 * uy, Y1 - hs * uy + hs * 0.45 * ux);
+  ctx.lineTo(X1 - hs * ux + hs * 0.45 * uy, Y1 - hs * uy - hs * 0.45 * ux); ctx.closePath(); ctx.fill();
+  if (label) { ctx.font = "italic 12px serif"; ctx.fillText(label, X1 + 4, Y1 - 4); }
+}
+// zig-zag spring + damper between world points A (start) and B (end plate), free length L0
+function springDamper(ctx, V, A, dir, L0, Mv, col, active, width) {
+  const nx = -dir[1], ny = dir[0];
+  const Bd = L0 - Mv;                         // distance to the opposite plate
+  const Ls = Mv > 0 ? Bd : L0;                // spring length (compressed or free)
+  const w = width, off = w * 0.9;
+  const P = (s, o) => [A[0] + dir[0] * s + nx * o, A[1] + dir[1] * s + ny * o];
+  ctx.lineWidth = active ? 2.2 : 1.4; ctx.strokeStyle = active ? col : C.grey; ctx.fillStyle = ctx.strokeStyle;
+  // plates
+  const plate = (s) => { const p0 = P(s, -off - w * 0.6), p1 = P(s, off + w * 0.6); ctx.beginPath(); ctx.moveTo(V.X(p0[0]), V.Y(p0[1])); ctx.lineTo(V.X(p1[0]), V.Y(p1[1])); ctx.stroke(); };
+  plate(0); plate(Bd);
+  // spring (upper rail)
+  ctx.beginPath(); let p = P(0, off); ctx.moveTo(V.X(p[0]), V.Y(p[1]));
+  const nz = 8;
+  p = P(Ls * 0.12, off); ctx.lineTo(V.X(p[0]), V.Y(p[1]));
+  for (let j = 0; j < nz; j++) { const s = Ls * (0.12 + 0.76 * (j + 0.5) / nz); p = P(s, off + (j % 2 ? -1 : 1) * w * 0.55); ctx.lineTo(V.X(p[0]), V.Y(p[1])); }
+  p = P(Ls * 0.88, off); ctx.lineTo(V.X(p[0]), V.Y(p[1])); p = P(Ls, off); ctx.lineTo(V.X(p[0]), V.Y(p[1])); ctx.stroke();
+  // damper (lower rail): rod from plate A, cylinder ending at spring end
+  const Lc = Ls;
+  ctx.beginPath(); p = P(0, -off); ctx.moveTo(V.X(p[0]), V.Y(p[1])); p = P(Lc * 0.55, -off); ctx.lineTo(V.X(p[0]), V.Y(p[1])); ctx.stroke();
+  const pl0 = P(Lc * 0.55, -off - w * 0.35), pl1 = P(Lc * 0.55, -off + w * 0.35);
+  ctx.beginPath(); ctx.moveTo(V.X(pl0[0]), V.Y(pl0[1])); ctx.lineTo(V.X(pl1[0]), V.Y(pl1[1])); ctx.stroke();
+  const c0 = P(Lc * 0.4, -off - w * 0.5), c1 = P(Lc, -off - w * 0.5), c2 = P(Lc, -off + w * 0.5), c3 = P(Lc * 0.4, -off + w * 0.5);
+  ctx.beginPath(); ctx.moveTo(V.X(c0[0]), V.Y(c0[1])); ctx.lineTo(V.X(c1[0]), V.Y(c1[1])); ctx.lineTo(V.X(c2[0]), V.Y(c2[1])); ctx.lineTo(V.X(c3[0]), V.Y(c3[1])); ctx.stroke();
+}
+function groundSpring(ctx, V, x0, y0, dx, dy, n, amp) {   // from (x0,y0) to (x0+dx, y0+dy), plus hatch at end
+  const L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  ctx.beginPath(); ctx.moveTo(V.X(x0), V.Y(y0));
+  for (let j = 1; j < 2 * n; j++) { const s = L * (0.15 + 0.7 * j / (2 * n)), o = (j % 2 ? 1 : -1) * amp; ctx.lineTo(V.X(x0 + ux * s + nx * o), V.Y(y0 + uy * s + ny * o)); }
+  ctx.lineTo(V.X(x0 + dx), V.Y(y0 + dy)); ctx.strokeStyle = C.mute; ctx.lineWidth = 1.2; ctx.stroke();
+  const ex = x0 + dx, ey = y0 + dy;
+  line(ctx, V, ex + nx * amp * 2, ey + ny * amp * 2, ex - nx * amp * 2, ey - ny * amp * 2, C.mute, 1.5);
+  for (let j = -2; j <= 2; j++) line(ctx, V, ex + nx * amp * j, ey + ny * amp * j, ex + nx * amp * j + ux * amp * 1.2 + nx * amp * 0.8, ey + ny * amp * j + uy * amp * 1.2 + ny * amp * 0.8, C.mute, 0.8);
+}
+
+// ---------------- the visual state ----------------
+function visualState() {
+  const q = sim.q, gp_ = sim.gp, g = sim.gap;
+  const Ap = +$("ap").value, Al = +$("al").value, At = +$("at").value;
+  const G = g > 0 ? +$("gv").value : 0;          // visible half gap [mm]
+  const m = sim.mesh(q, sim.v);
+  const Mv = (p) => (p > 0 ? Ap * p * MM : (g > 0 ? p / g * G : Ap * p * MM));
+  const u1 = [Al * q[4] * MM, Al * q[5] * MM], u2 = [Al * q[6] * MM, Al * q[7] * MM];
+  const sa = gp_.sa, ca = gp_.ca, rb1 = gp_.rb1 * MM, rb2 = gp_.rb2 * MM;
+  const ld = (u1[0] - u2[0]) * sa + (u1[1] - u2[1]) * ca, lr = (u1[0] - u2[0]) * sa - (u1[1] - u2[1]) * ca;
+  const th2 = q[2];
+  let th1v;
+  if (m.pd >= m.pr) th1v = (Mv(m.pd) + G - ld + rb2 * th2) / rb1;
+  else th1v = (-Mv(m.pr) - G + lr + rb2 * th2) / rb1;
+  return { m, Mvd: Mv(m.pd), Mvr: Mv(m.pr), u1, u2, th1v, th2, G,
+           hub1: th1v + At * (q[0] - q[1]), hub2: th2 + At * (q[3] - q[2]) };
+}
+
+function drawGears(ctx, V, vs, zoom) {
+  const gp_ = sim.gp, a = gp_.a * MM;
+  const o1 = gearOutline(gp_.z1, gp_.m * MM, gp_.alphaDeg, gp_.ha, gp_.hf, vs.G / (gp_.rb1 * MM));
+  const o2 = gearOutline(gp_.z2, gp_.m * MM, gp_.alphaDeg, gp_.ha, gp_.hf, 0);
+  const c1 = vs.u1, c2 = [a + vs.u2[0], vs.u2[1]];
+  const rot2 = Math.PI + Math.PI / gp_.z2 - vs.th2;
+  // nominal circles
+  if (!zoom) {
+    circle(ctx, V, 0, 0, gp_.rb1 * MM, C.blue, [4, 4]); circle(ctx, V, a, 0, gp_.rb2 * MM, C.red, [4, 4]);
+  }
+  polyGear(ctx, V, o2, c2[0], c2[1], rot2, "rgba(192,57,43,0.13)", C.red);
+  polyGear(ctx, V, o1, c1[0], c1[1], vs.th1v, "rgba(31,95,168,0.16)", C.blue);
+  return { c1, c2, rot2 };
+}
+
+function drawLOA(ctx, V, vs, which, lw) {
+  const gp_ = sim.gp, al = gp_.alpha, a = gp_.a * MM;
+  for (const fl of which) {
+    const sg = fl === "drive" ? 1 : -1;
+    const T1 = [gp_.rb1 * MM * Math.cos(al), -sg * gp_.rb1 * MM * Math.sin(al)];
+    const T2 = [a - gp_.rb2 * MM * Math.cos(al), sg * gp_.rb2 * MM * Math.sin(al)];
+    const mid = [(vs.u1[0] + vs.u2[0]) / 2, (vs.u1[1] + vs.u2[1]) / 2];
+    line(ctx, V, T1[0] + mid[0], T1[1] + mid[1], T2[0] + mid[0], T2[1] + mid[1], fl === "drive" ? C.green : C.orange, lw || 1, [6, 3]);
+  }
+}
+
+// analytic point-in-gear test (gear-local polar coordinates), mm
+function insideGear(x, y, cx, cy, rot, z, psi, rb, ra, rf) {
+  const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy);
+  if (r > ra) return false; if (r < rf) return true;
+  const p = 2 * Math.PI / z;
+  let d = ((Math.atan2(dy, dx) - rot) % p + p) % p; if (d > p / 2) d -= p;
+  const ang = r > rb ? psi - inv(Math.acos(rb / r)) : psi;
+  return Math.abs(d) <= ang;
+}
+// tooth-pair contacts on one line of action: for every gear-1 flank facing along n, the
+// matching gear-2 flank. Returns [{A, B, gap}] with gap < 0 meaning overlap (compression).
+function flankPairs(vs, geo, n) {
+  const gp_ = sim.gp, al = gp_.alpha, m = gp_.m * MM;
+  const r1 = gp_.r1 * MM, r2 = gp_.r2 * MM, rb1 = gp_.rb1 * MM, rb2 = gp_.rb2 * MM;
+  const ra1 = r1 + gp_.ha * m, ra2 = r2 + gp_.ha * m, rf1 = r1 - gp_.hf * m, rf2 = r2 - gp_.hf * m;
+  const psi1 = Math.PI / (2 * gp_.z1) + inv(al) - vs.G / rb1, psi2 = Math.PI / (2 * gp_.z2) + inv(al);
+  const P0 = [r1 + (vs.u1[0] + vs.u2[0]) / 2, (vs.u1[1] + vs.u2[1]) / 2];
+  const ds = 0.004, S = 9, N = Math.round(2 * S / ds);
+  const in1 = new Uint8Array(N + 1), in2 = new Uint8Array(N + 1);
+  for (let k = 0; k <= N; k++) {
+    const s = -S + k * ds, x = P0[0] + n[0] * s, y = P0[1] + n[1] * s;
+    in1[k] = insideGear(x, y, geo.c1[0], geo.c1[1], vs.th1v, gp_.z1, psi1, rb1, ra1, rf1) ? 1 : 0;
+    in2[k] = insideGear(x, y, geo.c2[0], geo.c2[1], geo.rot2, gp_.z2, psi2, rb2, ra2, rf2) ? 1 : 0;
+  }
+  const out = [], win = Math.round(3 / ds);
+  for (let k = 1; k <= N; k++) {
+    if (!(in1[k - 1] && !in1[k])) continue;          // gear-1 flank facing +n
+    let kb = -1;
+    if (in2[k]) { for (let j = k; j > Math.max(0, k - win); j--) if (in2[j] && !in2[j - 1]) { kb = j; break; } }
+    else { for (let j = k; j < Math.min(N, k + win); j++) if (!in2[j] && in2[j + 1]) { kb = j + 1; break; } }
+    if (kb < 0) continue;
+    const sa = -S + k * ds, sb = -S + kb * ds;
+    out.push({ A: [P0[0] + n[0] * sa, P0[1] + n[1] * sa], B: [P0[0] + n[0] * sb, P0[1] + n[1] * sb], gap: sb - sa });
+  }
+  return out;
+}
+
+function drawContacts(ctx, V, vs, geo) {
+  const gp_ = sim.gp;
+  for (const [n, col, pen] of [[[gp_.sa, gp_.ca], C.green, vs.m.pd], [[gp_.sa, -gp_.ca], C.orange, vs.m.pr]]) {
+    for (const c of flankPairs(vs, geo, n)) {
+      if (c.gap > 2.5) continue;
+      const touching = pen > 0;
+      ctx.lineCap = "round";
+      line(ctx, V, c.A[0], c.A[1], c.B[0], c.B[1], touching ? C.red : col, touching ? 5 : 2, touching ? [] : [3, 3]);
+      ctx.lineCap = "butt";
+      for (const P of [c.A, c.B]) { ctx.beginPath(); ctx.arc(V.X(P[0]), V.Y(P[1]), 3, 0, 7); ctx.fillStyle = touching ? C.red : col; ctx.fill(); }
+      ctx.font = "11px system-ui"; ctx.fillStyle = touching ? C.red : col;
+      const tx = V.X((c.A[0] + c.B[0]) / 2) + 8, ty = V.Y((c.A[1] + c.B[1]) / 2) + 4;
+      ctx.fillText(touching ? `${(pen * 1e6).toFixed(2)} µm` : `gap ${(-pen * 1e6).toFixed(1)} µm`, tx, ty);
+    }
+  }
+}
+
+// schematic spring-damper of each flank in screen space (side panel of the zoom view)
+function drawFlankElements(ctx, w, h, vs, pxPerMm) {
+  const gp_ = sim.gp;
+  const items = [[[gp_.sa, -gp_.ca], vs.Mvd, C.green, vs.m.pd > 0, "drive flank", [70, 112]],
+                 [[gp_.sa, gp_.ca], vs.Mvr, C.orange, vs.m.pr > 0, "coast flank", [70, h - 118]]];
+  const V2 = { X: (x) => x, Y: (y) => y, s: 1 };
+  const L0 = 84;
+  for (const [n, Mv, col, active, name, cen] of items) {
+    ctx.fillStyle = "rgba(255,255,255,0.92)"; ctx.strokeStyle = "#e5e7eb";
+    ctx.beginPath(); ctx.roundRect(cen[0] - 60, cen[1] - 78, 120, 156, 8); ctx.fill(); ctx.stroke();
+    const A = [cen[0] - n[0] * L0 / 2, cen[1] - n[1] * L0 / 2];
+    const Mp = Math.max(Math.min(Mv * pxPerMm, L0 * 0.75), -L0 * 0.35);
+    springDamper(ctx, V2, A, n, L0, Mp, col, active, 11);
+    ctx.fillStyle = active ? col : C.mute; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+    ctx.fillText(name, cen[0], cen[1] - 64); ctx.fillText(active ? "compressed" : "open (gap)", cen[0], cen[1] + 72);
+    ctx.textAlign = "start";
+  }
+}
+
+function drawOverview() {
+  const [ctx, w, h] = setupCanvas($("cv"));
+  const gp_ = sim.gp, a = gp_.a * MM;
+  const V = view(ctx, w, h, a * 0.42, 0, 165);
+  const vs = visualState();
+  const { c1, c2, rot2 } = drawGears(ctx, V, vs, false);
+  drawLOA(ctx, V, vs, ["drive"], 1);
+  // hubs (shaft / drivetrain inertia) with markers
+  for (const [c, rh, rotHub, rotGear, col, lab, r_b] of [[c1, 12, vs.hub1, vs.th1v, C.blue, "J_in", gp_.rb1], [c2, 22, -vs.hub2 + Math.PI, -vs.th2 + Math.PI, C.red, "J_out", gp_.rb2]]) {
+    circle(ctx, V, c[0], c[1], rh, col, null, sim.o.inertias ? "rgba(107,114,128,0.25)" : "rgba(255,255,255,0.6)");
+    line(ctx, V, c[0], c[1], c[0] + rh * Math.cos(rotHub), c[1] + rh * Math.sin(rotHub), C.ink, 2);
+    const R0 = rh, R1 = r_b * MM * 0.85;
+    line(ctx, V, c[0] + R0 * Math.cos(rotGear), c[1] + R0 * Math.sin(rotGear), c[0] + R1 * Math.cos(rotGear), c[1] + R1 * Math.sin(rotGear), col, 2);
+    if (sim.o.inertias) { ctx.fillStyle = C.mute; ctx.font = "11px system-ui"; ctx.fillText(lab + (sim.shaftFlex ? " (twist ×" + $("at").value + ")" : " (rigid)"), V.X(c[0] - rh), V.Y(c[1] - rh - 3)); }
+    ctx.beginPath(); ctx.arc(V.X(c[0]), V.Y(c[1]), 2.5, 0, 7); ctx.fillStyle = C.ink; ctx.fill();
+  }
+  // bearings
+  for (const [c, nom, col] of [[c1, [0, 0], C.blue], [c2, [a, 0], C.red]]) {
+    line(ctx, V, nom[0] - 4, nom[1], nom[0] + 4, nom[1], C.grey, 1); line(ctx, V, nom[0], nom[1] - 4, nom[0], nom[1] + 4, C.grey, 1);
+    if (sim.lateral) {
+      groundSpring(ctx, V, c[0], c[1] - 3, 0, -16, 5, 1.5);
+      groundSpring(ctx, V, c[0] - 3, c[1], -16, 0, 5, 1.5);
+    }
+  }
+  // forces: mesh force on gear 2 at the pitch point; bearing reactions on the shafts
+  const m = vs.m, Fs = 22 / 1500;
+  const P0 = [gp_.r1 * MM + (vs.u1[0] + vs.u2[0]) / 2, (vs.u1[1] + vs.u2[1]) / 2];
+  if (Math.abs(m.F) > 1) arrow(ctx, V, P0[0], P0[1], (m.Fd + m.Fr) * gp_.sa * Fs, (m.Fd - m.Fr) * gp_.ca * Fs, C.green, 2.2, "F");
+  const R1 = bearingForce1();
+  const R2 = sim.lateral ? (() => { const cl = 2 * sim.o.zetaB * Math.sqrt(sim.kl * gp_.m2); return [-(sim.kl * sim.q[6] + cl * sim.v[6]), -(sim.kl * sim.q[7] + cl * sim.v[7])]; })() : [-R1[0], -R1[1]];
+  arrow(ctx, V, c1[0] - R1[0] * Fs, c1[1] - R1[1] * Fs, R1[0] * Fs, R1[1] * Fs, C.red, 2, "R₁");
+  arrow(ctx, V, c2[0] - R2[0] * Fs, c2[1] - R2[1] * Fs, R2[0] * Fs, R2[1] * Fs, C.blue, 2, "R₂");
+  // axes + caption
+  ctx.fillStyle = C.mute; ctx.font = "11px system-ui";
+  ctx.fillText(`arrows: 1500 N ≙ 22 mm · lateral ×${$("al").value} · F on gear 2, R = bearing force on the shaft`, 8, h - 8);
+  if (sim.clampOut) { ctx.fillStyle = C.red; ctx.fillText("output end clamped", V.X(a + 30), V.Y(60)); }
+}
+
+function drawZoom() {
+  const [ctx, w, h] = setupCanvas($("cz"));
+  const gp_ = sim.gp, vs = visualState();
+  const P0 = [gp_.r1 * MM + (vs.u1[0] + vs.u2[0]) / 2, (vs.u1[1] + vs.u2[1]) / 2];
+  const V = view(ctx, w, h, P0[0] - 3.5, P0[1], 21);
+  const geo = drawGears(ctx, V, vs, true);
+  drawLOA(ctx, V, vs, ["drive", "coast"], 1.2);
+  drawContacts(ctx, V, vs, geo);
+  drawFlankElements(ctx, w, h, vs, V.s);
+  const m = vs.m;
+  ctx.font = "12px system-ui";
+  ctx.fillStyle = C.green; ctx.fillText(`F_d = ${m.Fd.toFixed(0)} N`, w - 110, 18);
+  ctx.fillStyle = C.orange; ctx.fillText(`F_r = ${m.Fr.toFixed(0)} N`, w - 110, 36);
+  ctx.fillStyle = C.mute; ctx.font = "11px system-ui";
+  ctx.fillText(`red bar = tooth overlap (compression ×${$("ap").value}), dashed = open gap${sim.o.tv ? " · k = " + (m.k / 1e6).toFixed(0) + " N/µm" : ""}`, 8, h - 8);
+}
+
+// ---------------- plots ----------------
+function plot(cvId, series, opts = {}) {
+  const [ctx, w, h] = setupCanvas($(cvId));
+  const t = hist.t; if (t.length < 2) return;
+  const win = +$("win").value * 1e-3, t1 = t[t.length - 1], t0 = Math.max(t1 - win, 0);
+  let lo = Infinity, hi = -Infinity;
+  for (const s of series) for (let j = 0; j < s.d.length; j++) if (t[j] >= t0) { lo = Math.min(lo, s.d[j]); hi = Math.max(hi, s.d[j]); }
+  if (opts.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if (!(hi > lo)) { hi = lo + 1; lo -= 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const L = 52, R = 26, T = 6, B = 18;
+  const X = (x) => L + (x - t0) / (Math.max(t1, win) - t0 || 1) * (w - L - R) * (t1 >= win ? 1 : (t1 - t0) / win || 1);
+  const Xs = (x) => L + (x - t0) / win * (w - L - R);
+  const Y = (y) => T + (hi - y) / (hi - lo) * (h - T - B);
+  ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 1; ctx.font = "10px system-ui"; ctx.fillStyle = C.mute;
+  for (let k = 0; k <= 4; k++) { const y = lo + (hi - lo) * k / 4; ctx.beginPath(); ctx.moveTo(L, Y(y)); ctx.lineTo(w - R, Y(y)); ctx.stroke(); ctx.fillText(fmtN(y), 2, Y(y) + 3); }
+  if (lo < 0 && hi > 0) { ctx.strokeStyle = "#9ca3af"; ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(w - R, Y(0)); ctx.stroke(); }
+  for (let k = 0; k <= 5; k++) { const tt = t0 + win * k / 5; ctx.fillText((tt * 1e3).toFixed(win < 2e-3 ? 2 : 1) + " ms", Xs(tt) - 14, h - 4); }
+  for (const s of series) {
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j < s.d.length; j++) { if (t[j] < t0) continue; const xx = Xs(t[j]), yy = Y(s.d[j]); first ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy); first = false; }
+    ctx.strokeStyle = s.c; ctx.lineWidth = s.w || 1.4; ctx.setLineDash(s.dash || []); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (opts.unit) { ctx.fillStyle = C.mute; ctx.fillText(opts.unit, L + 4, T + 10); }
+}
+function fmtN(y) { const a = Math.abs(y); return a >= 1000 ? y.toFixed(0) : a >= 10 ? y.toFixed(1) : a >= 1 ? y.toFixed(2) : y.toFixed(3); }
+
+function drawPlots() {
+  const bandNeg = hist.band.map((b) => -b);
+  plot("p1", [{ d: hist.band, c: C.grey, dash: [4, 3] }, { d: bandNeg, c: C.grey, dash: [4, 3] }, { d: hist.e, c: C.blue, w: 1.8 }], { unit: "µm" });
+  plot("p2", [{ d: hist.Rb, c: C.red, w: 1 }, { d: hist.Fd, c: C.green }, { d: hist.Fr, c: C.orange }], { zero: true, unit: "N" });
+  const mode = plot3Mode();
+  if (mode === "energy") {
+    $("p3title").textContent = "Energy (relative to the preload energy)";
+    $("p3leg").innerHTML = `<span><i style="background:${C.green}"></i>mesh strain</span><span><i style="background:${C.purple}"></i>bearings</span><span><i style="background:${C.blue}"></i>shaft twist</span><span><i style="background:${C.orange}"></i>kinetic</span><span><i style="background:${C.grey}"></i>dissipated</span>`;
+    plot("p3", [{ d: hist.a, c: C.green }, { d: hist.b, c: C.purple }, { d: hist.c, c: C.blue }, { d: hist.d, c: C.orange }, { d: hist.e5, c: C.grey, w: 2 }], { zero: true, unit: "E / E0" });
+  } else {
+    $("p3title").textContent = "Speeds (gear 2 and output end referred to the pinion: × i)";
+    $("p3leg").innerHTML = `<span><i style="background:${C.grey}"></i>input end</span><span><i style="background:${C.blue}"></i>gear 1</span><span><i style="background:${C.red}"></i>gear 2 × i</span><span><i style="background:${C.purple}"></i>output end × i</span>`;
+    const ser = [{ d: hist.b, c: C.blue, w: 1.6 }, { d: hist.c, c: C.red, w: 1.2 }];
+    if (sim.shaftFlex) ser.unshift({ d: hist.a, c: C.grey, w: 1 }), ser.push({ d: hist.d, c: C.purple, w: 1 });
+    plot("p3", ser, { unit: "rpm" });
+  }
+}
+
+function drawStatus() {
+  $("tsim").textContent = `t = ${(sim.t * 1e3).toFixed(3)} ms`;
+  const st = $("state"); st.className = "pill " + contactState;
+  st.textContent = contactState === "drive" ? "drive flank in contact" : contactState === "coast" ? "coast flank in contact" : "free flight through the backlash";
+  $("imp").textContent = `impacts ${impacts}`;
+  $("rest").textContent = restit.length ? `restitution e = ${restit[restit.length - 1].toFixed(3)}` : "restitution e = –";
+  const m = sim.mesh(sim.q, sim.v);
+  $("fnow").textContent = `F = ${m.F.toFixed(0)} N`;
+  $("info").textContent = scenInfo;
+}
+
+function draw() { drawOverview(); drawZoom(); drawPlots(); drawStatus(); }
+
+// ---------------- loop ----------------
+let playing = true, lastFrame = null;
+function advance(simDt) {
+  let n = Math.ceil(simDt / DT); n = Math.min(n, 6000);
+  for (let j = 0; j < n; j++) { sim.onTime(sim.t); sim.step(DT); events(); sample(false); }
+}
+function slowFactor() { return Math.pow(10, +$("slow").value); }   // real s per sim ms
+function frame(ts) {
+  if (lastFrame === null) lastFrame = ts;
+  const dtReal = Math.min((ts - lastFrame) / 1000, 0.05); lastFrame = ts;
+  if (playing) advance(dtReal / slowFactor() * 1e-3);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ---------------- UI wiring ----------------
+function labels() {
+  const sf = slowFactor();
+  $("slowv").textContent = sf >= 1 ? `${sf.toFixed(1)} s/ms` : `${(sf * 1000).toFixed(0)} ms/ms`;
+  $("blv").textContent = `${$("bl").value} µm`;
+  $("zetav").textContent = (+$("zeta").value).toFixed(2);
+  $("kbv").textContent = `${(+$("kb").value * 100).toFixed(0)} N/µm`;
+  $("apv").textContent = `×${$("ap").value}`;
+  $("gvv").textContent = `${(+$("gv").value * 2).toFixed(1)} mm`;
+  $("alv").textContent = `×${$("al").value}`;
+  $("atv").textContent = `×${$("at").value}`;
+  $("winv").textContent = `${(+$("win").value).toFixed(1)} ms`;
+  $("lab_tor").classList.toggle("dis", !$("e_in").checked); $("e_tor").disabled = !$("e_in").checked;
+}
+function scenDefaults() {
+  const s = SCEN[$("scen").value];
+  const inert = $("e_in").checked && $("e_tor").checked;
+  $("slow").value = inert ? s.slowInert : s.slow;
+  $("win").value = inert ? s.winInert : s.win;
+  labels();
+}
+["slow", "ap", "gv", "al", "at", "win"].forEach((id) => $(id).addEventListener("input", labels));
+["e_bl", "bl", "e_tv", "zeta", "e_br", "kb", "e_bend", "e_in", "e_tor"].forEach((id) => $(id).addEventListener("change", () => {
+  labels(); if (id === "e_in" || id === "e_tor") scenDefaults(); restart();
+}));
+$("scen").addEventListener("change", () => { buildParams(); scenDefaults(); restart(); });
+$("play").onclick = () => { playing = !playing; $("play").textContent = playing ? "Pause" : "Play"; };
+$("restart").onclick = restart;
+$("stepb").onclick = () => { advance(slowFactor() > 0 ? 1 / 60 / slowFactor() * 1e-3 : 1e-5); draw(); };
+window.addEventListener("resize", draw);
+
+buildParams(); scenDefaults(); restart();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
