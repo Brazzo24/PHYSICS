@@ -1,0 +1,8 @@
+// Run with:  omc run_all.mos   (or open GearMeshBenchmark.mo in OMEdit and simulate the Examples)
+loadFile("GearMeshBenchmark.mo"); getErrorString();
+simulate(GearMeshBenchmark.Examples.Stage1, outputFormat="csv",
+  variableFilter="angle_deg|lashA_mm|lashB_mm|FA|FB|x1_mm|y1_mm|x2_mm|y2_mm|Fs1x"); getErrorString();
+simulate(GearMeshBenchmark.Examples.Stage2, outputFormat="csv",
+  variableFilter="angle_deg|Tload|Ft|lashA_mm|lashB_mm|gearX_mm|gearY_mm|midX_mm|midY_mm|blockX_mm|blockY_mm|caseX_mm|caseY_mm|FXBlock|FYBlock|FXCase|FYCase"); getErrorString();
+simulate(GearMeshBenchmark.Examples.Stage2Calibrated, outputFormat="csv",
+  variableFilter="angle_deg|Tload|Ft|lashA_mm|lashB_mm|gearX_mm|gearY_mm|midX_mm|midY_mm|blockX_mm|blockY_mm|caseX_mm|caseY_mm|FXBlock|FYBlock|FXCase|FYCase"); getErrorString();
